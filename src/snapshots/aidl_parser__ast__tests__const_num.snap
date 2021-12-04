@@ -1,0 +1,45 @@
+---
+source: src/ast.rs
+expression: "rules::constant(input, &lookup(input))?"
+
+---
+Const(Const(
+  name: "CONST_NAME",
+  const_type: Type(
+    name: "int",
+    kind: Primitive,
+    generic_types: [],
+    definition: None,
+    symbol_range: Range(
+      start: Position(
+        offset: 6,
+        line_col: (1, 7),
+      ),
+      end: Position(
+        offset: 9,
+        line_col: (1, 10),
+      ),
+    ),
+  ),
+  value: "123",
+  symbol_range: Range(
+    start: Position(
+      offset: 10,
+      line_col: (1, 11),
+    ),
+    end: Position(
+      offset: 20,
+      line_col: (1, 21),
+    ),
+  ),
+  full_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 28,
+      line_col: (1, 29),
+    ),
+  ),
+))

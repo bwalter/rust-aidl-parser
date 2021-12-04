@@ -1,0 +1,44 @@
+---
+source: src/ast.rs
+expression: "rules::member(input, &lookup(input))?"
+
+---
+Member(
+  name: "memberName",
+  member_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: Range(
+      start: Position(
+        offset: 16,
+        line_col: (1, 17),
+      ),
+      end: Position(
+        offset: 24,
+        line_col: (1, 25),
+      ),
+    ),
+  ),
+  symbol_range: Range(
+    start: Position(
+      offset: 25,
+      line_col: (1, 26),
+    ),
+    end: Position(
+      offset: 35,
+      line_col: (1, 36),
+    ),
+  ),
+  full_range: Range(
+    start: Position(
+      offset: 16,
+      line_col: (1, 17),
+    ),
+    end: Position(
+      offset: 53,
+      line_col: (1, 54),
+    ),
+  ),
+)

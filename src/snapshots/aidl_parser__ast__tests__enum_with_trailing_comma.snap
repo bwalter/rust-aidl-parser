@@ -1,0 +1,78 @@
+---
+source: src/ast.rs
+expression: "rules::enumeration(input, &lookup(input))?"
+
+---
+Enum(Enum(
+  name: "Paprika",
+  elements: [
+    EnumElement(
+      name: "ELEMENT1",
+      value: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 27,
+          line_col: (2, 13),
+        ),
+        end: Position(
+          offset: 35,
+          line_col: (2, 21),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 27,
+          line_col: (2, 13),
+        ),
+        end: Position(
+          offset: 35,
+          line_col: (2, 21),
+        ),
+      ),
+    ),
+    EnumElement(
+      name: "ELEMENT2",
+      value: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 49,
+          line_col: (3, 13),
+        ),
+        end: Position(
+          offset: 57,
+          line_col: (3, 21),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 49,
+          line_col: (3, 13),
+        ),
+        end: Position(
+          offset: 57,
+          line_col: (3, 21),
+        ),
+      ),
+    ),
+  ],
+  full_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 67,
+      line_col: (4, 9),
+    ),
+  ),
+  symbol_range: Range(
+    start: Position(
+      offset: 5,
+      line_col: (1, 6),
+    ),
+    end: Position(
+      offset: 11,
+      line_col: (1, 12),
+    ),
+  ),
+))

@@ -1,0 +1,38 @@
+---
+source: src/ast.rs
+expression: "rules::type_(input, &lookup(input))?"
+
+---
+Type(
+  name: "List",
+  kind: List,
+  generic_types: [
+    Type(
+      name: "MyObject",
+      kind: Custom,
+      generic_types: [],
+      definition: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 6,
+          line_col: (1, 7),
+        ),
+        end: Position(
+          offset: 14,
+          line_col: (1, 15),
+        ),
+      ),
+    ),
+  ],
+  definition: None,
+  symbol_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 16,
+      line_col: (1, 17),
+    ),
+  ),
+)

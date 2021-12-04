@@ -1,0 +1,46 @@
+---
+source: src/ast.rs
+expression: "rules::method(input, &lookup(input))?"
+
+---
+Method(Method(
+  oneway: false,
+  name: "myMethod",
+  return_type: Type(
+    name: "void",
+    kind: Void,
+    generic_types: [],
+    definition: None,
+    symbol_range: Range(
+      start: Position(
+        offset: 16,
+        line_col: (1, 17),
+      ),
+      end: Position(
+        offset: 20,
+        line_col: (1, 21),
+      ),
+    ),
+  ),
+  args: [],
+  symbol_range: Range(
+    start: Position(
+      offset: 21,
+      line_col: (1, 22),
+    ),
+    end: Position(
+      offset: 29,
+      line_col: (1, 30),
+    ),
+  ),
+  full_range: Range(
+    start: Position(
+      offset: 16,
+      line_col: (1, 17),
+    ),
+    end: Position(
+      offset: 32,
+      line_col: (1, 33),
+    ),
+  ),
+))

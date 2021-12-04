@@ -1,0 +1,21 @@
+---
+source: src/ast.rs
+expression: "rules::type_(input, &lookup(input))?"
+
+---
+Type(
+  name: "doublegum",
+  kind: Custom,
+  generic_types: [],
+  definition: None,
+  symbol_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 9,
+      line_col: (1, 10),
+    ),
+  ),
+)

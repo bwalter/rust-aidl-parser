@@ -1,0 +1,8 @@
+---
+source: src/ast.rs
+expression: "rules::annotation(input, &lookup(input))?"
+
+---
+Annotation(
+  key_values: {},
+)

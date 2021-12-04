@@ -1,0 +1,71 @@
+---
+source: src/ast.rs
+expression: "rules::type_(input, &lookup(input))?"
+
+---
+Type(
+  name: "Map",
+  kind: Map,
+  generic_types: [
+    Type(
+      name: "Key",
+      kind: Custom,
+      generic_types: [],
+      definition: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 4,
+          line_col: (1, 5),
+        ),
+        end: Position(
+          offset: 7,
+          line_col: (1, 8),
+        ),
+      ),
+    ),
+    Type(
+      name: "List",
+      kind: List,
+      generic_types: [
+        Type(
+          name: "V",
+          kind: Custom,
+          generic_types: [],
+          definition: None,
+          symbol_range: Range(
+            start: Position(
+              offset: 13,
+              line_col: (1, 14),
+            ),
+            end: Position(
+              offset: 14,
+              line_col: (1, 15),
+            ),
+          ),
+        ),
+      ],
+      definition: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 8,
+          line_col: (1, 9),
+        ),
+        end: Position(
+          offset: 15,
+          line_col: (1, 16),
+        ),
+      ),
+    ),
+  ],
+  definition: None,
+  symbol_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 16,
+      line_col: (1, 17),
+    ),
+  ),
+)

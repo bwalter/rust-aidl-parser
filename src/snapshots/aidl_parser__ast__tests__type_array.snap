@@ -1,0 +1,38 @@
+---
+source: src/ast.rs
+expression: "rules::type_(input, &lookup(input))?"
+
+---
+Type(
+  name: "Array",
+  kind: Array,
+  generic_types: [
+    Type(
+      name: "float",
+      kind: Primitive,
+      generic_types: [],
+      definition: None,
+      symbol_range: Range(
+        start: Position(
+          offset: 0,
+          line_col: (1, 1),
+        ),
+        end: Position(
+          offset: 5,
+          line_col: (1, 6),
+        ),
+      ),
+    ),
+  ],
+  definition: None,
+  symbol_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 8,
+      line_col: (1, 9),
+    ),
+  ),
+)

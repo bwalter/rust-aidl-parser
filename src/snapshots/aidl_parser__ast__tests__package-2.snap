@@ -1,0 +1,18 @@
+---
+source: src/ast.rs
+expression: "rules::package(input, &lookup(input))?"
+
+---
+Package(
+  name: "x.y.z",
+  symbol_range: Range(
+    start: Position(
+      offset: 8,
+      line_col: (1, 9),
+    ),
+    end: Position(
+      offset: 12,
+      line_col: (1, 13),
+    ),
+  ),
+)

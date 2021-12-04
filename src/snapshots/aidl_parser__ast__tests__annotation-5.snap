@@ -1,0 +1,12 @@
+---
+source: src/ast.rs
+expression: "rules::annotation(input, &lookup(input))?"
+
+---
+Annotation(
+  key_values: {
+    "Hello": Some("\"World\""),
+    "Hi": None,
+    "Servus": Some("3"),
+  },
+)

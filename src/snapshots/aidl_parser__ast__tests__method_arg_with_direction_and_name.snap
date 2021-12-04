@@ -1,0 +1,25 @@
+---
+source: src/ast.rs
+expression: "rules::method_arg(input, &lookup(input))?"
+
+---
+Arg(
+  direction: Out,
+  name: Some("roger"),
+  arg_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: Range(
+      start: Position(
+        offset: 4,
+        line_col: (1, 5),
+      ),
+      end: Position(
+        offset: 12,
+        line_col: (1, 13),
+      ),
+    ),
+  ),
+)

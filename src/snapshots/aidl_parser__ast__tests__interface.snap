@@ -1,0 +1,192 @@
+---
+source: src/ast.rs
+expression: "rules::interface(input, &lookup(input))?"
+
+---
+Interface(Interface(
+  name: "Potato",
+  elements: [
+    Const(Const(
+      name: "const1",
+      const_type: Type(
+        name: "int",
+        kind: Primitive,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 96,
+            line_col: (5, 19),
+          ),
+          end: Position(
+            offset: 99,
+            line_col: (5, 22),
+          ),
+        ),
+      ),
+      value: "1",
+      symbol_range: Range(
+        start: Position(
+          offset: 100,
+          line_col: (5, 23),
+        ),
+        end: Position(
+          offset: 106,
+          line_col: (5, 29),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 90,
+          line_col: (5, 13),
+        ),
+        end: Position(
+          offset: 185,
+          line_col: (10, 13),
+        ),
+      ),
+    )),
+    Method(Method(
+      oneway: false,
+      name: "method1",
+      return_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 185,
+            line_col: (10, 13),
+          ),
+          end: Position(
+            offset: 191,
+            line_col: (10, 19),
+          ),
+        ),
+      ),
+      args: [],
+      symbol_range: Range(
+        start: Position(
+          offset: 192,
+          line_col: (10, 20),
+        ),
+        end: Position(
+          offset: 199,
+          line_col: (10, 27),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 185,
+          line_col: (10, 13),
+        ),
+        end: Position(
+          offset: 216,
+          line_col: (12, 13),
+        ),
+      ),
+    )),
+    Const(Const(
+      name: "const2",
+      const_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 222,
+            line_col: (12, 19),
+          ),
+          end: Position(
+            offset: 228,
+            line_col: (12, 25),
+          ),
+        ),
+      ),
+      value: "\"two\"",
+      symbol_range: Range(
+        start: Position(
+          offset: 229,
+          line_col: (12, 26),
+        ),
+        end: Position(
+          offset: 235,
+          line_col: (12, 32),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 216,
+          line_col: (12, 13),
+        ),
+        end: Position(
+          offset: 257,
+          line_col: (13, 13),
+        ),
+      ),
+    )),
+    Method(Method(
+      oneway: false,
+      name: "method2",
+      return_type: Type(
+        name: "int",
+        kind: Primitive,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 257,
+            line_col: (13, 13),
+          ),
+          end: Position(
+            offset: 260,
+            line_col: (13, 16),
+          ),
+        ),
+      ),
+      args: [],
+      symbol_range: Range(
+        start: Position(
+          offset: 261,
+          line_col: (13, 17),
+        ),
+        end: Position(
+          offset: 268,
+          line_col: (13, 24),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 257,
+          line_col: (13, 13),
+        ),
+        end: Position(
+          offset: 280,
+          line_col: (14, 9),
+        ),
+      ),
+    )),
+  ],
+  full_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 280,
+      line_col: (14, 9),
+    ),
+  ),
+  symbol_range: Range(
+    start: Position(
+      offset: 10,
+      line_col: (1, 11),
+    ),
+    end: Position(
+      offset: 15,
+      line_col: (1, 16),
+    ),
+  ),
+))

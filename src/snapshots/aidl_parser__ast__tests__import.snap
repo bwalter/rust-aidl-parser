@@ -1,0 +1,18 @@
+---
+source: src/ast.rs
+expression: "rules::import(input, &lookup(input))?"
+
+---
+Import(
+  name: "x.y.z",
+  symbol_range: Range(
+    start: Position(
+      offset: 7,
+      line_col: (1, 8),
+    ),
+    end: Position(
+      offset: 11,
+      line_col: (1, 12),
+    ),
+  ),
+)

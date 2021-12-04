@@ -1,0 +1,29 @@
+---
+source: src/ast.rs
+expression: "rules::interface(input, &lookup(input))?"
+
+---
+Interface(Interface(
+  name: "Potato",
+  elements: [],
+  full_range: Range(
+    start: Position(
+      offset: 56,
+      line_col: (2, 35),
+    ),
+    end: Position(
+      offset: 87,
+      line_col: (3, 13),
+    ),
+  ),
+  symbol_range: Range(
+    start: Position(
+      offset: 66,
+      line_col: (2, 45),
+    ),
+    end: Position(
+      offset: 71,
+      line_col: (2, 50),
+    ),
+  ),
+))

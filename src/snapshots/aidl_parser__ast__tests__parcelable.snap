@@ -1,0 +1,108 @@
+---
+source: src/ast.rs
+expression: "rules::parcelable(input, &lookup(input))?"
+
+---
+Parcelable(Parcelable(
+  name: "Tomato",
+  members: [
+    Member(
+      name: "member1",
+      member_type: Type(
+        name: "int",
+        kind: Primitive,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 92,
+            line_col: (5, 13),
+          ),
+          end: Position(
+            offset: 95,
+            line_col: (5, 16),
+          ),
+        ),
+      ),
+      symbol_range: Range(
+        start: Position(
+          offset: 96,
+          line_col: (5, 17),
+        ),
+        end: Position(
+          offset: 103,
+          line_col: (5, 24),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 92,
+          line_col: (5, 13),
+        ),
+        end: Position(
+          offset: 118,
+          line_col: (7, 13),
+        ),
+      ),
+    ),
+    Member(
+      name: "member2",
+      member_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: Range(
+          start: Position(
+            offset: 118,
+            line_col: (7, 13),
+          ),
+          end: Position(
+            offset: 124,
+            line_col: (7, 19),
+          ),
+        ),
+      ),
+      symbol_range: Range(
+        start: Position(
+          offset: 125,
+          line_col: (7, 20),
+        ),
+        end: Position(
+          offset: 132,
+          line_col: (7, 27),
+        ),
+      ),
+      full_range: Range(
+        start: Position(
+          offset: 118,
+          line_col: (7, 13),
+        ),
+        end: Position(
+          offset: 160,
+          line_col: (8, 9),
+        ),
+      ),
+    ),
+  ],
+  full_range: Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 160,
+      line_col: (8, 9),
+    ),
+  ),
+  symbol_range: Range(
+    start: Position(
+      offset: 11,
+      line_col: (1, 12),
+    ),
+    end: Position(
+      offset: 16,
+      line_col: (1, 17),
+    ),
+  ),
+))
