@@ -22,4 +22,14 @@ Arg(
       ),
     ),
   ),
+  annotations: [
+    Annotation(
+      key_values: {},
+    ),
+    Annotation(
+      key_values: {
+        "AnnotationParam": None,
+      },
+    ),
+  ],
 )

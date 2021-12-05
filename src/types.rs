@@ -73,6 +73,7 @@ pub type ItemKey = PathBuf;
 pub struct Interface {
     pub name: String,
     pub elements: Vec<InterfaceElement>,
+    pub annotations: Vec<Annotation>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
@@ -81,6 +82,7 @@ pub struct Interface {
 pub struct Parcelable {
     pub name: String,
     pub members: Vec<Member>,
+    pub annotations: Vec<Annotation>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
@@ -89,15 +91,16 @@ pub struct Parcelable {
 pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
+    pub annotations: Vec<Annotation>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
-
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Const {
     pub name: String,
     pub const_type: Type,
     pub value: String,
+    pub annotations: Vec<Annotation>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
@@ -108,6 +111,7 @@ pub struct Method {
     pub name: String,
     pub return_type: Type,
     pub args: Vec<Arg>,
+    pub annotations: Vec<Annotation>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
@@ -117,6 +121,7 @@ pub struct Arg {
     pub direction: Direction,
     pub name: Option<String>,
     pub arg_type: Type,
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -131,6 +136,22 @@ impl Default for Direction {
     fn default() -> Self {
         Direction::Unspecified
     }
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Member {
+    pub name: String,
+    pub member_type: Type,
+    pub symbol_range: Range,
+    pub full_range: Range,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct EnumElement {
+    pub name: String,
+    pub value: Option<String>,
+    pub symbol_range: Range,
+    pub full_range: Range,
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -174,20 +195,4 @@ impl Type {
             symbol_range: Range::new(lookup, start, end),
         }
     }
-}
-
-#[derive(Serialize, Debug, PartialEq)]
-pub struct Member {
-    pub name: String,
-    pub member_type: Type,
-    pub symbol_range: Range,
-    pub full_range: Range,
-}
-
-#[derive(Serialize, Debug, PartialEq)]
-pub struct EnumElement {
-    pub name: String,
-    pub value: Option<String>,
-    pub symbol_range: Range,
-    pub full_range: Range,
 }

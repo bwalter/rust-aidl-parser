@@ -36,46 +36,49 @@ peg::parser! {
             }
 
         pub rule interface() -> types::Item
-            = annotations() _ fp1:position!() "interface" whitespace() _
+            = annotations:annotations() _ fp1:position!() "interface" whitespace() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
             _ "{" _ elements:(method() / constant())* _ "}"
             fp2:position!() {
                types::Item::Interface(types::Interface {
                    name: name.to_owned(),
                    elements,
+                   annotations,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule parcelable() -> types::Item
-            = annotations() _ fp1:position!() "parcelable" whitespace() _
+            = annotations:annotations() _ fp1:position!() "parcelable" whitespace() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
             _ "{" _ members:member()* _ "}"
             fp2:position!() {
                types::Item::Parcelable(types::Parcelable {
                    name: name.to_owned(),
                    members,
+                   annotations,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule enumeration() -> types::Item
-            = annotations() _ fp1:position!() "enum" whitespace() _
+            = annotations:annotations() _ fp1:position!() "enum" whitespace() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!() _
             _ "{" _ elements:(enum_element() ++ (_ "," _)) _ ","? _ "}"
             fp2:position!() {
                types::Item::Enum(types::Enum {
                    name: name.to_owned(),
                    elements,
+                   annotations,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule method() -> types::InterfaceElement
-            = annotations() _ fp1:position!() _ oneway:("oneway" whitespace())? _ rt:type_() _ sp1:position!() name:ident() sp2:position!() _
+            = annotations:annotations() _ fp1:position!() _ oneway:("oneway" whitespace())? _ rt:type_() _ sp1:position!() name:ident() sp2:position!() _
             "(" _ args:(method_arg() ** (_ "," _)) _ ","? _ ")" _
             ("=" _ digit()+)? _
             ";" _ fp2:position!() {
@@ -84,6 +87,7 @@ peg::parser! {
                 name: name.to_owned(),
                 return_type: rt,
                 args,
+                annotations,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
             })
@@ -91,19 +95,21 @@ peg::parser! {
 
         pub rule method_arg() -> types::Arg = method_arg_with_name() / method_arg_without_name()
         pub rule method_arg_with_name() -> types::Arg
-            = annotations() _ d:direction()? _ t:type_() whitespace() _ n:ident() {
+            = annotations:annotations() _ d:direction()? _ t:type_() whitespace() _ n:ident() {
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: Some(n.to_owned()),
                 arg_type: t,
+                annotations,
             }
         }
         pub rule method_arg_without_name() -> types::Arg
-            = annotations() _ d:direction()? _ t:type_() {
+            = annotations:annotations() _ d:direction()? _ t:type_() {
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: None,
                 arg_type: t,
+                annotations,
             }
         }
 
@@ -122,7 +128,7 @@ peg::parser! {
 
         // Note: currently no check for the correct value type
         pub rule constant() -> types::InterfaceElement
-            = annotations() _ fp1:position!() "const" whitespace() _ t:type_() _
+            = annotations:annotations() _ fp1:position!() "const" whitespace() _ t:type_() _
             sp1:position!() name:ident() sp2:position!() _
             "=" _ v:value() _
             ";" _ fp2:position!() {
@@ -130,6 +136,7 @@ peg::parser! {
                 name: name.to_owned(),
                 const_type: t,
                 value: v.to_owned(),
+                annotations,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
             })
@@ -218,7 +225,7 @@ peg::parser! {
         rule direction_out() -> types::Direction = "out" { types::Direction::Out }
         rule direction_inout() -> types::Direction = "inout" { types::Direction::InOut }
 
-        pub rule annotations() = annotation() ** _
+        pub rule annotations() -> Vec<types::Annotation> = annotation() ** _
         pub rule annotation() -> types::Annotation = annotation_with_params() / annotation_without_param()
         pub rule annotation_without_param() -> types::Annotation
             = "@" ident() {

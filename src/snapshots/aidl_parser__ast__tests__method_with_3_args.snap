@@ -42,6 +42,7 @@ Method(Method(
           ),
         ),
       ),
+      annotations: [],
     ),
     Arg(
       direction: Unspecified,
@@ -62,6 +63,7 @@ Method(Method(
           ),
         ),
       ),
+      annotations: [],
     ),
     Arg(
       direction: Unspecified,
@@ -82,8 +84,10 @@ Method(Method(
           ),
         ),
       ),
+      annotations: [],
     ),
   ],
+  annotations: [],
   symbol_range: Range(
     start: Position(
       offset: 9,

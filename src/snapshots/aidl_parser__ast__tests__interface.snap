@@ -25,6 +25,7 @@ Interface(Interface(
         ),
       ),
       value: "1",
+      annotations: [],
       symbol_range: Range(
         start: Position(
           offset: 100,
@@ -66,6 +67,7 @@ Interface(Interface(
         ),
       ),
       args: [],
+      annotations: [],
       symbol_range: Range(
         start: Position(
           offset: 192,
@@ -106,6 +108,7 @@ Interface(Interface(
         ),
       ),
       value: "\"two\"",
+      annotations: [],
       symbol_range: Range(
         start: Position(
           offset: 229,
@@ -147,6 +150,7 @@ Interface(Interface(
         ),
       ),
       args: [],
+      annotations: [],
       symbol_range: Range(
         start: Position(
           offset: 261,
@@ -169,6 +173,7 @@ Interface(Interface(
       ),
     )),
   ],
+  annotations: [],
   full_range: Range(
     start: Position(
       offset: 0,

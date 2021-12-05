@@ -42,8 +42,10 @@ Method(Method(
           ),
         ),
       ),
+      annotations: [],
     ),
   ],
+  annotations: [],
   symbol_range: Range(
     start: Position(
       offset: 9,

@@ -6,6 +6,14 @@ expression: "rules::interface(input, &lookup(input))?"
 Interface(Interface(
   name: "Potato",
   elements: [],
+  annotations: [
+    Annotation(
+      key_values: {},
+    ),
+    Annotation(
+      key_values: {},
+    ),
+  ],
   full_range: Range(
     start: Position(
       offset: 56,

@@ -22,6 +22,7 @@ Const(Const(
     ),
   ),
   value: "123",
+  annotations: [],
   symbol_range: Range(
     start: Position(
       offset: 10,

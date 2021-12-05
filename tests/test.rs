@@ -98,8 +98,10 @@ fn test_parse() -> Result<()> {
                                     start: Position { offset: 192, line_col: (8, 31) },
                                     end: Position { offset: 198, line_col: (8, 37) }
                                 },
-                            }
+                            },
+                            annotations: vec![],
                         }],
+                        annotations: vec![],
 
                         #[rustfmt::skip]
                         symbol_range: Range {
@@ -142,8 +144,10 @@ fn test_parse() -> Result<()> {
                                     start: Position { offset: 231, line_col: (9, 29) },
                                     end: Position { offset: 243, line_col: (9, 41) }
                                 },
-                            }
+                            },
+                            annotations: vec![],
                         }],
+                        annotations: vec![],
 
                         #[rustfmt::skip]
                         symbol_range: Range {
@@ -158,6 +162,7 @@ fn test_parse() -> Result<()> {
                         }
                     })
                 ],
+                annotations: vec![],
 
                 #[rustfmt::skip]
                 full_range: Range {

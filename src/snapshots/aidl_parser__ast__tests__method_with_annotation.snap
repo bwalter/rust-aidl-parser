@@ -23,6 +23,11 @@ Method(Method(
     ),
   ),
   args: [],
+  annotations: [
+    Annotation(
+      key_values: {},
+    ),
+  ],
   symbol_range: Range(
     start: Position(
       offset: 21,

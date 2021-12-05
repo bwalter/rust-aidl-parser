@@ -22,4 +22,5 @@ Arg(
       ),
     ),
   ),
+  annotations: [],
 )

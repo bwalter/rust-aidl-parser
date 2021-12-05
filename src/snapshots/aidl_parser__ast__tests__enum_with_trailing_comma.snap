@@ -55,6 +55,7 @@ Enum(Enum(
       ),
     ),
   ],
+  annotations: [],
   full_range: Range(
     start: Position(
       offset: 0,
