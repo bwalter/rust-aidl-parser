@@ -1,9 +1,9 @@
 ---
 source: src/ast.rs
-expression: "rules::import(input, &lookup(input))?"
+expression: "rules::package(input, &lookup(input))?"
 
 ---
-Import(
+Package(
   name: "x.y.z",
   symbol_range: "...",
 )

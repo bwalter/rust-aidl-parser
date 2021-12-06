@@ -12,27 +12,9 @@ Type(
       kind: Primitive,
       generic_types: [],
       definition: None,
-      symbol_range: Range(
-        start: Position(
-          offset: 0,
-          line_col: (1, 1),
-        ),
-        end: Position(
-          offset: 5,
-          line_col: (1, 6),
-        ),
-      ),
+      symbol_range: "...",
     ),
   ],
   definition: None,
-  symbol_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 8,
-      line_col: (1, 9),
-    ),
-  ),
+  symbol_range: "...",
 )

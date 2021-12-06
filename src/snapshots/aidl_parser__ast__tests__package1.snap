@@ -1,0 +1,9 @@
+---
+source: src/ast.rs
+expression: "rules::package(input, &lookup(input))?"
+
+---
+Package(
+  name: "x",
+  symbol_range: "...",
+)

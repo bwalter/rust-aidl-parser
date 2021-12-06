@@ -16,7 +16,6 @@ It provides a basic validation but does not (yet) check for the full specificati
 
 TODO:
 - Resolve types
-- Parse JavaDoc
 
 ## Example
 
@@ -60,77 +59,91 @@ fn test_parse() -> Result<()> {
 
     assert_eq!(
         files[0],
-        File {
-            package: Package {
-                name: "com.bwa.aidl_test".into(),
-                symbol_range: Range { ... },
-            },
-            imports: vec![
-                Import {
-                    name: "com.bwa.aidl_test.MyEnum".into(),
-                    symbol_range: Range { ... },
-                },
-                Import {
-                    name: "com.bwa.aidl_test.MyParcelable".into(),
-                    symbol_range: Range { ... },
-                }
-            ],
-            item: Item::Interface(Interface {
-                name: "MyInterface".into(),
-                elements: vec![
-                    InterfaceElement::Method(Method {
-                        oneway: true,
-                        name: "hello".into(),
-                        return_type: Type {
-                            name: "void".into(),
-                            kind: TypeKind::Void,
-                            generic_types: vec![],
-                            definition: None,
-                            range: Range { ... },
-                        },
-                        args: vec![Arg {
-                            direction: Direction::Unspecified,
-                            name: Some("e".into()),
-                            arg_type: Type {
-                                name: "MyEnum".into(),
-                                kind: TypeKind::Custom,
-                                generic_types: vec![],
-                                definition: None,
-                                range: Range { ... },
-                            }
-                        }],
-                        symbol_range: Range { ... },
-                        full_range: Range { ... },
-                    }),
-                    InterfaceElement::Method(Method {
-                        oneway: false,
-                        name: "get_name".into(),
-                        return_type: Type {
-                            name: "String".into(),
-                            kind: TypeKind::String,
-                            generic_types: vec![],
-                            definition: None,
-                            range: Range { ... },
-                        },
-                        args: vec![Arg {
-                            direction: Direction::Unspecified,
-                            name: None,
-                            arg_type: Type {
-                                name: "MyParcelable".into(),
-                                kind: TypeKind::Custom,
-                                generic_types: vec![],
-                                definition: None,
-                                range: Range { ... },
-                            }
-                        }],
-                        symbol_range: Range { ... },
-                        full_range: Range { ... },
-                    })
+        File(
+          package: Package(
+            name: "com.bwa.aidl_test",
+            symbol_range: "...",
+          ),
+          imports: [
+            Import(
+              name: "com.bwa.aidl_test.MyEnum",
+              symbol_range: "...",
+            ),
+            Import(
+              name: "com.bwa.aidl_test.MyParcelable",
+              symbol_range: "...",
+            ),
+          ],
+          item: Interface(Interface(
+            name: "MyInterface",
+            elements: [
+              Method(Method(
+                oneway: true,
+                name: "hello",
+                return_type: Type(
+                  name: "void",
+                  kind: Void,
+                  generic_types: [],
+                  definition: None,
+                  symbol_range: "...",
+                ),
+                args: [
+                  Arg(
+                    direction: Unspecified,
+                    name: Some("e"),
+                    arg_type: Type(
+                      name: "MyEnum",
+                      kind: Custom,
+                      generic_types: [],
+                      definition: None,
+                      symbol_range: "...",
+                    ),
+                    doc: None,
+                    annotations: [],
+                  ),
                 ],
-                full_range: Range { ... },
-                symbol_range: Range { ... },
-            })
-        }
+                annotations: [],
+                doc: None,
+                symbol_range: "...",
+                full_range: "...",
+              )),
+              Method(Method(
+                oneway: false,
+                name: "get_name",
+                return_type: Type(
+                  name: "String",
+                  kind: String,
+                  generic_types: [],
+                  definition: None,
+                  symbol_range: "...",
+                ),
+                args: [
+                  Arg(
+                    direction: Unspecified,
+                    name: None,
+                    arg_type: Type(
+                      name: "MyParcelable",
+                      kind: Custom,
+                      generic_types: [],
+                      definition: None,
+                      symbol_range: "...",
+                    ),
+                    doc: None,
+                    annotations: [],
+                  ),
+                ],
+                annotations: [],
+                doc: None,
+                symbol_range: "...",
+                full_range: "...",
+              )),
+            ],
+            annotations: [],
+            doc: Some("Documentation of MyInterface"),
+            full_range: "...",
+            symbol_range: "...",
+          )),
+        )
     );
 
     Ok(())

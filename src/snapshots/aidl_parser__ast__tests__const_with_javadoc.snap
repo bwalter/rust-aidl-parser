@@ -6,15 +6,15 @@ expression: "rules::constant(input, &lookup(input))?"
 Const(Const(
   name: "CONST_NAME",
   const_type: Type(
-    name: "int",
-    kind: Primitive,
+    name: "TypeName",
+    kind: Custom,
     generic_types: [],
     definition: None,
     symbol_range: "...",
   ),
   value: "123",
   annotations: [],
-  doc: None,
+  doc: Some("Const docu"),
   symbol_range: "...",
   full_range: "...",
 ))

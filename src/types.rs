@@ -74,6 +74,7 @@ pub struct Interface {
     pub name: String,
     pub elements: Vec<InterfaceElement>,
     pub annotations: Vec<Annotation>,
+    pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
@@ -83,6 +84,7 @@ pub struct Parcelable {
     pub name: String,
     pub members: Vec<Member>,
     pub annotations: Vec<Annotation>,
+    pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
@@ -92,6 +94,7 @@ pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
     pub annotations: Vec<Annotation>,
+    pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
 }
@@ -101,6 +104,7 @@ pub struct Const {
     pub const_type: Type,
     pub value: String,
     pub annotations: Vec<Annotation>,
+    pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
@@ -112,6 +116,7 @@ pub struct Method {
     pub return_type: Type,
     pub args: Vec<Arg>,
     pub annotations: Vec<Annotation>,
+    pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
@@ -121,6 +126,7 @@ pub struct Arg {
     pub direction: Direction,
     pub name: Option<String>,
     pub arg_type: Type,
+    pub doc: Option<String>,
     pub annotations: Vec<Annotation>,
 }
 
@@ -143,6 +149,7 @@ pub struct Member {
     pub name: String,
     pub member_type: Type,
     pub symbol_range: Range,
+    pub doc: Option<String>,
     pub full_range: Range,
 }
 
@@ -150,6 +157,7 @@ pub struct Member {
 pub struct EnumElement {
     pub name: String,
     pub value: Option<String>,
+    pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
 }

@@ -13,39 +13,13 @@ Interface(Interface(
         kind: Primitive,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 96,
-            line_col: (5, 19),
-          ),
-          end: Position(
-            offset: 99,
-            line_col: (5, 22),
-          ),
-        ),
+        symbol_range: "...",
       ),
       value: "1",
       annotations: [],
-      symbol_range: Range(
-        start: Position(
-          offset: 100,
-          line_col: (5, 23),
-        ),
-        end: Position(
-          offset: 106,
-          line_col: (5, 29),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 90,
-          line_col: (5, 13),
-        ),
-        end: Position(
-          offset: 185,
-          line_col: (10, 13),
-        ),
-      ),
+      doc: Some("const1 docu"),
+      symbol_range: "...",
+      full_range: "...",
     )),
     Method(Method(
       oneway: false,
@@ -55,39 +29,13 @@ Interface(Interface(
         kind: String,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 185,
-            line_col: (10, 13),
-          ),
-          end: Position(
-            offset: 191,
-            line_col: (10, 19),
-          ),
-        ),
+        symbol_range: "...",
       ),
       args: [],
       annotations: [],
-      symbol_range: Range(
-        start: Position(
-          offset: 192,
-          line_col: (10, 20),
-        ),
-        end: Position(
-          offset: 199,
-          line_col: (10, 27),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 185,
-          line_col: (10, 13),
-        ),
-        end: Position(
-          offset: 216,
-          line_col: (12, 13),
-        ),
-      ),
+      doc: Some("method1 docu"),
+      symbol_range: "...",
+      full_range: "...",
     )),
     Const(Const(
       name: "const2",
@@ -96,39 +44,13 @@ Interface(Interface(
         kind: String,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 222,
-            line_col: (12, 19),
-          ),
-          end: Position(
-            offset: 228,
-            line_col: (12, 25),
-          ),
-        ),
+        symbol_range: "...",
       ),
       value: "\"two\"",
       annotations: [],
-      symbol_range: Range(
-        start: Position(
-          offset: 229,
-          line_col: (12, 26),
-        ),
-        end: Position(
-          offset: 235,
-          line_col: (12, 32),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 216,
-          line_col: (12, 13),
-        ),
-        end: Position(
-          offset: 257,
-          line_col: (13, 13),
-        ),
-      ),
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
     )),
     Method(Method(
       oneway: false,
@@ -138,60 +60,17 @@ Interface(Interface(
         kind: Primitive,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 257,
-            line_col: (13, 13),
-          ),
-          end: Position(
-            offset: 260,
-            line_col: (13, 16),
-          ),
-        ),
+        symbol_range: "...",
       ),
       args: [],
       annotations: [],
-      symbol_range: Range(
-        start: Position(
-          offset: 261,
-          line_col: (13, 17),
-        ),
-        end: Position(
-          offset: 268,
-          line_col: (13, 24),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 257,
-          line_col: (13, 13),
-        ),
-        end: Position(
-          offset: 280,
-          line_col: (14, 9),
-        ),
-      ),
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
     )),
   ],
   annotations: [],
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 280,
-      line_col: (14, 9),
-    ),
-  ),
-  symbol_range: Range(
-    start: Position(
-      offset: 10,
-      line_col: (1, 11),
-    ),
-    end: Position(
-      offset: 15,
-      line_col: (1, 16),
-    ),
-  ),
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
 ))

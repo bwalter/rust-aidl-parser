@@ -11,16 +11,7 @@ Method(Method(
     kind: Custom,
     generic_types: [],
     definition: None,
-    symbol_range: Range(
-      start: Position(
-        offset: 0,
-        line_col: (1, 1),
-      ),
-      end: Position(
-        offset: 8,
-        line_col: (1, 9),
-      ),
-    ),
+    symbol_range: "...",
   ),
   args: [
     Arg(
@@ -31,17 +22,9 @@ Method(Method(
         kind: Custom,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 18,
-            line_col: (1, 19),
-          ),
-          end: Position(
-            offset: 26,
-            line_col: (1, 27),
-          ),
-        ),
+        symbol_range: "...",
       ),
+      doc: None,
       annotations: [],
     ),
     Arg(
@@ -52,17 +35,9 @@ Method(Method(
         kind: Custom,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 28,
-            line_col: (1, 29),
-          ),
-          end: Position(
-            offset: 36,
-            line_col: (1, 37),
-          ),
-        ),
+        symbol_range: "...",
       ),
+      doc: None,
       annotations: [],
     ),
     Arg(
@@ -73,39 +48,14 @@ Method(Method(
         kind: Custom,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 43,
-            line_col: (1, 44),
-          ),
-          end: Position(
-            offset: 51,
-            line_col: (1, 52),
-          ),
-        ),
+        symbol_range: "...",
       ),
+      doc: None,
       annotations: [],
     ),
   ],
   annotations: [],
-  symbol_range: Range(
-    start: Position(
-      offset: 9,
-      line_col: (1, 10),
-    ),
-    end: Position(
-      offset: 17,
-      line_col: (1, 18),
-    ),
-  ),
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 54,
-      line_col: (1, 55),
-    ),
-  ),
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
 ))

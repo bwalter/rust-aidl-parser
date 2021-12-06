@@ -9,95 +9,27 @@ Enum(Enum(
     EnumElement(
       name: "ELEMENT1",
       value: Some("3"),
-      symbol_range: Range(
-        start: Position(
-          offset: 88,
-          line_col: (5, 13),
-        ),
-        end: Position(
-          offset: 96,
-          line_col: (5, 21),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 88,
-          line_col: (5, 13),
-        ),
-        end: Position(
-          offset: 100,
-          line_col: (5, 25),
-        ),
-      ),
+      doc: Some("element1 docu"),
+      symbol_range: "...",
+      full_range: "...",
     ),
     EnumElement(
       name: "ELEMENT2",
       value: Some("\"quattro\""),
-      symbol_range: Range(
-        start: Position(
-          offset: 115,
-          line_col: (7, 13),
-        ),
-        end: Position(
-          offset: 123,
-          line_col: (7, 21),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 115,
-          line_col: (7, 13),
-        ),
-        end: Position(
-          offset: 135,
-          line_col: (7, 33),
-        ),
-      ),
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
     ),
     EnumElement(
       name: "ELEMENT3",
       value: None,
-      symbol_range: Range(
-        start: Position(
-          offset: 149,
-          line_col: (8, 13),
-        ),
-        end: Position(
-          offset: 157,
-          line_col: (8, 21),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 149,
-          line_col: (8, 13),
-        ),
-        end: Position(
-          offset: 166,
-          line_col: (9, 9),
-        ),
-      ),
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
     ),
   ],
   annotations: [],
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 166,
-      line_col: (9, 9),
-    ),
-  ),
-  symbol_range: Range(
-    start: Position(
-      offset: 5,
-      line_col: (1, 6),
-    ),
-    end: Position(
-      offset: 11,
-      line_col: (1, 12),
-    ),
-  ),
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
 ))

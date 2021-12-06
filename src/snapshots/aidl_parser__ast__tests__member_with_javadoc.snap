@@ -1,20 +1,18 @@
 ---
 source: src/ast.rs
-expression: "rules::constant(input, &lookup(input))?"
+expression: "rules::member(input, &lookup(input))?"
 
 ---
-Const(Const(
-  name: "CONST_NAME",
-  const_type: Type(
+Member(
+  name: "memberName",
+  member_type: Type(
     name: "TypeName",
     kind: Custom,
     generic_types: [],
     definition: None,
     symbol_range: "...",
   ),
-  value: "\"const value\"",
-  annotations: [],
-  doc: None,
   symbol_range: "...",
+  doc: Some("Member docu"),
   full_range: "...",
-))
+)

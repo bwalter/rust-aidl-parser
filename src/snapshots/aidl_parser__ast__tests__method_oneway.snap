@@ -11,37 +11,11 @@ Method(Method(
     kind: Custom,
     generic_types: [],
     definition: None,
-    symbol_range: Range(
-      start: Position(
-        offset: 7,
-        line_col: (1, 8),
-      ),
-      end: Position(
-        offset: 15,
-        line_col: (1, 16),
-      ),
-    ),
+    symbol_range: "...",
   ),
   args: [],
   annotations: [],
-  symbol_range: Range(
-    start: Position(
-      offset: 16,
-      line_col: (1, 17),
-    ),
-    end: Position(
-      offset: 24,
-      line_col: (1, 25),
-    ),
-  ),
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 27,
-      line_col: (1, 28),
-    ),
-  ),
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
 ))

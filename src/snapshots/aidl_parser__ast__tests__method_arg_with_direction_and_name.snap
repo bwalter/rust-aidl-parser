@@ -11,16 +11,8 @@ Arg(
     kind: Custom,
     generic_types: [],
     definition: None,
-    symbol_range: Range(
-      start: Position(
-        offset: 4,
-        line_col: (1, 5),
-      ),
-      end: Position(
-        offset: 12,
-        line_col: (1, 13),
-      ),
-    ),
+    symbol_range: "...",
   ),
+  doc: None,
   annotations: [],
 )

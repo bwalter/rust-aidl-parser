@@ -10,35 +10,9 @@ Member(
     kind: Custom,
     generic_types: [],
     definition: None,
-    symbol_range: Range(
-      start: Position(
-        offset: 0,
-        line_col: (1, 1),
-      ),
-      end: Position(
-        offset: 8,
-        line_col: (1, 9),
-      ),
-    ),
+    symbol_range: "...",
   ),
-  symbol_range: Range(
-    start: Position(
-      offset: 9,
-      line_col: (1, 10),
-    ),
-    end: Position(
-      offset: 19,
-      line_col: (1, 20),
-    ),
-  ),
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 21,
-      line_col: (1, 22),
-    ),
-  ),
+  symbol_range: "...",
+  doc: None,
+  full_range: "...",
 )

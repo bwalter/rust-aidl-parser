@@ -8,14 +8,5 @@ Type(
   kind: Primitive,
   generic_types: [],
   definition: None,
-  symbol_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 6,
-      line_col: (1, 7),
-    ),
-  ),
+  symbol_range: "...",
 )

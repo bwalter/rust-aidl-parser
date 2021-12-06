@@ -13,37 +13,11 @@ Parcelable(Parcelable(
         kind: Primitive,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 92,
-            line_col: (5, 13),
-          ),
-          end: Position(
-            offset: 95,
-            line_col: (5, 16),
-          ),
-        ),
+        symbol_range: "...",
       ),
-      symbol_range: Range(
-        start: Position(
-          offset: 96,
-          line_col: (5, 17),
-        ),
-        end: Position(
-          offset: 103,
-          line_col: (5, 24),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 92,
-          line_col: (5, 13),
-        ),
-        end: Position(
-          offset: 118,
-          line_col: (7, 13),
-        ),
-      ),
+      symbol_range: "...",
+      doc: Some("member1 docu"),
+      full_range: "...",
     ),
     Member(
       name: "member2",
@@ -52,58 +26,15 @@ Parcelable(Parcelable(
         kind: String,
         generic_types: [],
         definition: None,
-        symbol_range: Range(
-          start: Position(
-            offset: 118,
-            line_col: (7, 13),
-          ),
-          end: Position(
-            offset: 124,
-            line_col: (7, 19),
-          ),
-        ),
+        symbol_range: "...",
       ),
-      symbol_range: Range(
-        start: Position(
-          offset: 125,
-          line_col: (7, 20),
-        ),
-        end: Position(
-          offset: 132,
-          line_col: (7, 27),
-        ),
-      ),
-      full_range: Range(
-        start: Position(
-          offset: 118,
-          line_col: (7, 13),
-        ),
-        end: Position(
-          offset: 160,
-          line_col: (8, 9),
-        ),
-      ),
+      symbol_range: "...",
+      doc: None,
+      full_range: "...",
     ),
   ],
   annotations: [],
-  full_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 160,
-      line_col: (8, 9),
-    ),
-  ),
-  symbol_range: Range(
-    start: Position(
-      offset: 11,
-      line_col: (1, 12),
-    ),
-    end: Position(
-      offset: 16,
-      line_col: (1, 17),
-    ),
-  ),
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
 ))

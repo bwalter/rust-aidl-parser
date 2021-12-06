@@ -14,12 +14,8 @@ Method(Method(
     symbol_range: "...",
   ),
   args: [],
-  annotations: [
-    Annotation(
-      key_values: {},
-    ),
-  ],
-  doc: None,
+  annotations: [],
+  doc: Some("Method docu"),
   symbol_range: "...",
   full_range: "...",
 ))

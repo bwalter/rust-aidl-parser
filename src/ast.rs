@@ -16,7 +16,7 @@ peg::parser! {
         }
 
         pub rule package() -> types::Package
-            = "package" whitespace() _ p1:position!()
+            = "package" whitespace_or_eol() _ p1:position!()
                 name:$((ident() ".")* ident())
             p2:position!() _ ";" {
                types::Package {
@@ -26,7 +26,7 @@ peg::parser! {
             }
 
         pub rule import() -> types::Import
-            = "import" whitespace() _ p1:position!()
+            = "import" whitespace_or_eol() _ p1:position!()
                 name:$((ident() ".")* ident())
             p2:position!() _ ";" {
                types::Import {
@@ -36,7 +36,7 @@ peg::parser! {
             }
 
         pub rule interface() -> types::Item
-            = annotations:annotations() _ fp1:position!() "interface" whitespace() _
+            = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "interface" whitespace_or_eol() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
             _ "{" _ elements:(method() / constant())* _ "}"
             fp2:position!() {
@@ -44,13 +44,14 @@ peg::parser! {
                    name: name.to_owned(),
                    elements,
                    annotations,
+                   doc: jd,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule parcelable() -> types::Item
-            = annotations:annotations() _ fp1:position!() "parcelable" whitespace() _
+            = jd:javadoc()? annotations:annotations() _ fp1:position!() "parcelable" whitespace_or_eol() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
             _ "{" _ members:member()* _ "}"
             fp2:position!() {
@@ -58,13 +59,14 @@ peg::parser! {
                    name: name.to_owned(),
                    members,
                    annotations,
+                   doc: jd,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule enumeration() -> types::Item
-            = annotations:annotations() _ fp1:position!() "enum" whitespace() _
+            = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "enum" whitespace_or_eol() _
             sp1:position!() name:$((ident() ".")* ident()) sp2:position!() _
             _ "{" _ elements:(enum_element() ++ (_ "," _)) _ ","? _ "}"
             fp2:position!() {
@@ -72,13 +74,14 @@ peg::parser! {
                    name: name.to_owned(),
                    elements,
                    annotations,
+                   doc: jd,
                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
                })
             }
 
         pub rule method() -> types::InterfaceElement
-            = annotations:annotations() _ fp1:position!() _ oneway:("oneway" whitespace())? _ rt:type_() _ sp1:position!() name:ident() sp2:position!() _
+            = jd:javadoc() ? _ annotations:annotations() _ fp1:position!() _ oneway:("oneway" whitespace_or_eol())? _ rt:type_() _ sp1:position!() name:ident() sp2:position!() _
             "(" _ args:(method_arg() ** (_ "," _)) _ ","? _ ")" _
             ("=" _ digit()+)? _
             ";" _ fp2:position!() {
@@ -88,6 +91,7 @@ peg::parser! {
                 return_type: rt,
                 args,
                 annotations,
+                doc: jd,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
             })
@@ -95,32 +99,35 @@ peg::parser! {
 
         pub rule method_arg() -> types::Arg = method_arg_with_name() / method_arg_without_name()
         pub rule method_arg_with_name() -> types::Arg
-            = annotations:annotations() _ d:direction()? _ t:type_() whitespace() _ n:ident() {
+            = jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_() whitespace_or_eol() _ n:ident() {
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: Some(n.to_owned()),
                 arg_type: t,
                 annotations,
+                doc: jd,
             }
         }
         pub rule method_arg_without_name() -> types::Arg
-            = annotations:annotations() _ d:direction()? _ t:type_() {
+            = jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_() {
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: None,
                 arg_type: t,
                 annotations,
+                doc: jd,
             }
         }
 
         pub rule member() -> types::Member
-            = annotations() _ fp1:position!() _ t:type_() _
+            = jd:javadoc()? _ annotations() _ fp1:position!() _ t:type_() _
             sp1:position!() name:ident() sp2:position!() _
             ("=" _ v:value())? _
             ";" _ fp2:position!() {
             types::Member {
                 name: name.to_owned(),
                 member_type: t,
+                doc: jd,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
             }
@@ -128,7 +135,7 @@ peg::parser! {
 
         // Note: currently no check for the correct value type
         pub rule constant() -> types::InterfaceElement
-            = annotations:annotations() _ fp1:position!() "const" whitespace() _ t:type_() _
+            = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "const" whitespace_or_eol() _ t:type_() _
             sp1:position!() name:ident() sp2:position!() _
             "=" _ v:value() _
             ";" _ fp2:position!() {
@@ -137,13 +144,15 @@ peg::parser! {
                 const_type: t,
                 value: v.to_owned(),
                 annotations,
+                doc: jd,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
             })
         }
 
         pub rule enum_element() -> types::EnumElement
-            = fp1:position!()
+            = jd:javadoc()? _
+            fp1:position!()
             sp1:position!() _ n:ident() sp2:position!() _
             ev:equals_value()?
             fp2:position!()
@@ -151,6 +160,7 @@ peg::parser! {
                 types::EnumElement {
                     name: n.to_owned(),
                     value: ev.map(str::to_owned),
+                    doc: jd,
                     symbol_range: types::Range::new(lookup, sp1, sp2),
                     full_range: types::Range::new(lookup, fp1, fp2),
                 }
@@ -251,38 +261,96 @@ peg::parser! {
         rule value_empty_object() = "{" _ "}"
         rule equals_value() -> &'input str = _ "=" _ v:value() { v }
 
-        rule block_comment() -> &'input str = quiet!{s:$("/*" (!"*/" [_])* "*/") { s }}
-        rule line_comment() -> &'input str = quiet!{s:$("//" (!(['\n' | '\r']) [_])*) { s }}
+        pub rule javadoc() -> String
+            = javadoc_begin() _
+            s:$(
+                (!javadoc_end() [_])*
+            ) _
+            javadoc_end() {
+            parse_javadoc(s)
+        }
+        rule javadoc_begin() = "/**";
+        rule javadoc_end() = _ "*/";
 
-        rule whitespace() = [ ' ' | '\n' | '\r' | '\t' ]
+        rule block_comment() -> &'input str
+            = $(!(javadoc() _ (
+                // All rules which extract the Javadoc:
+                interface() / parcelable() / enumeration() / method() / method_arg() /
+                member() / constant() / enum_element()
+            )) "/*" (!"*/" [_])* "*/")
+        rule line_comment() -> &'input str = s:$(quiet!{
+            "//" (!(['\n' | '\r']) [_])*
+        }) { s }
+        rule whitespace() = quiet!{[ ' ' | '\t' ]}
+        rule whitespace_or_eol() = quiet!{[ ' ' | '\n' | '\r' | '\t' ]}
         rule comment() = quiet!{block_comment() / line_comment()}
-        rule _ = quiet!{(whitespace()* comment())* whitespace()*}
+        rule _ = quiet!{(whitespace_or_eol() / comment())*}
+        rule eol() = quiet!{"\n" / "\r\n"}
 
         rule digit() = ['0'..='9']
         rule alphanumeric() = ['a'..='z' | 'A'..='Z' | '0'..='9']
         rule ident_first_char() = (['a'..='z' | 'A'..='Z'] / "_")
         rule ident_char() = alphanumeric() / "_"
-        rule ident() -> &'input str = $(ident_first_char() ident_char()*)
+        rule ident() -> &'input str = $(ident_first_char() ident_char()*) / expected!("identifier")
     }
+}
+
+fn parse_javadoc(s: &str) -> String {
+    // Transform into vec
+    let re = regex::Regex::new("\r?\n[ \t*]*\r?\n").unwrap();
+    let lines = re.split(s);
+
+    // Remove begin/end noise of each line
+    let re = regex::Regex::new("[ \t\r\n*]*\n[ \t\r\n*]*").unwrap();
+    let lines = lines.map(|s| {
+        let s = s.trim_matches(|c| c == '\r' || c == '\n' || c == ' ' || c == '\t' || c == '*');
+        re.replace_all(s, " ").to_string()
+    });
+
+    // Add \n before @
+    let re = regex::Regex::new("([^\n])[ \t]*@").unwrap();
+    let lines = lines.map(|s| re.replace_all(&s, "${1}\n@").to_string());
+
+    lines.collect::<Vec<_>>().join("\n")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
-    use insta::assert_ron_snapshot;
 
     fn lookup(input: &str) -> line_col::LineColLookup {
         line_col::LineColLookup::new(input)
     }
 
-    #[test]
-    fn test_package() -> Result<()> {
-        let input = "package x ;";
-        insta::assert_ron_snapshot!(rules::package(input, &lookup(input))?);
+    macro_rules! assert_rule {
+        ($input:ident, $rule:expr) => {
+            ::insta::assert_ron_snapshot!($rule($input, &lookup($input))?, {
+                ".**.symbol_range" => "...",
+                ".**.full_range" => "...",
+            });
+        };
 
+        ($input:ident, $rule:expr, @$snap:literal) => {
+            ::insta::assert_ron_snapshot!($rule($input, &lookup($input))?, {
+                ".**.symbol_range" => "...",
+                ".**.full_range" => "...",
+            }, @$snap);
+        };
+    }
+
+    #[test]
+    fn test_package1() -> Result<()> {
+        let input = "package x ;";
+        assert_rule!(input, rules::package);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_package2() -> Result<()> {
         let input = "package x.y.z;";
-        insta::assert_ron_snapshot!(rules::package(input, &lookup(input))?);
+        assert_rule!(input, rules::package);
 
         Ok(())
     }
@@ -290,7 +358,7 @@ mod tests {
     #[test]
     fn test_import() -> Result<()> {
         let input = "import x.y.z;";
-        insta::assert_ron_snapshot!(rules::import(input, &lookup(input))?);
+        assert_rule!(input, rules::import);
 
         Ok(())
     }
@@ -311,8 +379,8 @@ mod tests {
             const String const2 = "two";
             int method2();
         }"#;
+        assert_rule!(input, rules::interface);
 
-        insta::assert_ron_snapshot!(rules::interface(input, &lookup(input))?);
         Ok(())
     }
 
@@ -321,8 +389,8 @@ mod tests {
         let input = r#"@InterfaceAnnotation1
             @InterfaceAnnotation2 interface Potato {
             }"#;
+        assert_rule!(input, rules::interface);
 
-        insta::assert_ron_snapshot!(rules::interface(input, &lookup(input))?);
         Ok(())
     }
 
@@ -333,8 +401,8 @@ mod tests {
             completly_unexpected;
             int method2();
         }"#;
-
         assert!(rules::interface(input, &lookup(input)).is_err());
+
         Ok(())
     }
 
@@ -348,8 +416,8 @@ mod tests {
 
             String member2; // inline comment
         }"#;
+        assert_rule!(input, rules::parcelable);
 
-        insta::assert_ron_snapshot!(rules::parcelable(input, &lookup(input))?);
         Ok(())
     }
 
@@ -364,8 +432,8 @@ mod tests {
             ELEMENT2 = "quattro",
             ELEMENT3
         }"#;
+        assert_rule!(input, rules::enumeration);
 
-        insta::assert_ron_snapshot!(rules::enumeration(input, &lookup(input))?);
         Ok(())
     }
 
@@ -375,15 +443,15 @@ mod tests {
             ELEMENT1,
             ELEMENT2,
         }"#;
+        assert_rule!(input, rules::enumeration);
 
-        insta::assert_ron_snapshot!(rules::enumeration(input, &lookup(input))?);
         Ok(())
     }
 
     #[test]
     fn test_method_without_arg() -> Result<()> {
         let input = "TypeName myMethod() ;";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
+        assert_rule!(input, rules::method);
 
         Ok(())
     }
@@ -391,7 +459,7 @@ mod tests {
     #[test]
     fn test_method_with_1_arg() -> Result<()> {
         let input = "TypeName myMethod(ArgType arg) ;";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
+        assert_rule!(input, rules::method);
 
         Ok(())
     }
@@ -399,7 +467,7 @@ mod tests {
     #[test]
     fn test_method_with_3_args() -> Result<()> {
         let input = "TypeName myMethod(ArgType1, ArgType2 arg2, ArgType3) ;";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
+        assert_rule!(input, rules::method);
 
         Ok(())
     }
@@ -407,15 +475,42 @@ mod tests {
     #[test]
     fn test_method_oneway() -> Result<()> {
         let input = "oneway TypeName myMethod();";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
+        assert_rule!(input, rules::method);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_value() -> Result<()> {
+        let input = "TypeName myMethod() = 123;";
+        assert_rule!(input, rules::method);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_annotation() -> Result<()> {
+        let input = "@AnnotationName void myMethod();";
+        assert_rule!(input, rules::method);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_javadoc() -> Result<()> {
+        let input = r#"/**
+         * Method docu
+         */
+         void myMethod() = 123;"#;
+
+        assert_rule!(input, rules::method);
         Ok(())
     }
 
     #[test]
     fn test_method_arg_with_name() -> Result<()> {
         let input = "TypeName albert";
-        insta::assert_ron_snapshot!(rules::method_arg(input, &lookup(input))?);
+        assert_rule!(input, rules::method_arg);
 
         Ok(())
     }
@@ -423,7 +518,7 @@ mod tests {
     #[test]
     fn test_method_arg_with_direction() -> Result<()> {
         let input = "in TypeName";
-        insta::assert_ron_snapshot!(rules::method_arg(input, &lookup(input))?);
+        assert_rule!(input, rules::method_arg);
 
         Ok(())
     }
@@ -431,7 +526,7 @@ mod tests {
     #[test]
     fn test_method_arg_with_direction_and_name() -> Result<()> {
         let input = "out TypeName roger";
-        insta::assert_ron_snapshot!(rules::method_arg(input, &lookup(input))?);
+        assert_rule!(input, rules::method_arg);
 
         Ok(())
     }
@@ -440,71 +535,41 @@ mod tests {
     fn test_method_arg_with_annotations() -> Result<()> {
         let input = r#"@Annotation1
             @Annotation2(AnnotationParam ) TypeName albert"#;
-        insta::assert_ron_snapshot!(rules::method_arg(input, &lookup(input))?);
+        assert_rule!(input, rules::method_arg);
 
         Ok(())
-    }
-
-    #[test]
-    fn test_method_with_value() -> Result<()> {
-        let input = "TypeName myMethod() = 123;";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_method_with_annotation() -> Result<()> {
-        let input = "@AnnotationName void myMethod();";
-        insta::assert_ron_snapshot!(rules::method(input, &lookup(input))?);
-
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn test_method_with_javadoc() -> Result<()> {
-        let _input = r#"
-        /**
-         * Method docu
-         */
-         void myMethod() = 123;"#;
-
-        unimplemented!()
     }
 
     #[test]
     fn test_member() -> Result<()> {
         let input = "TypeName memberName ;";
-        insta::assert_ron_snapshot!(rules::member(input, &lookup(input))?);
-
+        assert_rule!(input, rules::member);
         Ok(())
     }
 
     #[test]
     fn test_member_with_value() -> Result<()> {
         let input = "TypeName memberName = \"member value\";";
-        insta::assert_ron_snapshot!(rules::member(input, &lookup(input))?);
+        assert_rule!(input, rules::member);
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn test_member_with_javadoc() -> Result<(), Box<dyn std::error::Error>> {
-        let _input = r#"
-        /**
-         * Member docu
-         */
-        TypeName memberName;"#;
+        let input = r#"/**
+             * Member docu
+             */
+            TypeName memberName;"#;
+        assert_rule!(input, rules::member);
 
-        unimplemented!()
+        Ok(())
     }
 
     #[test]
     fn test_member_with_annotation() -> Result<()> {
         let input = "@AnnotationName TypeName memberName = \"member value\";";
-        insta::assert_ron_snapshot!(rules::member(input, &lookup(input))?);
+        assert_rule!(input, rules::member);
 
         Ok(())
     }
@@ -512,7 +577,7 @@ mod tests {
     #[test]
     fn test_const_num() -> Result<()> {
         let input = "const int CONST_NAME = 123 ;";
-        insta::assert_ron_snapshot!(rules::constant(input, &lookup(input))?);
+        assert_rule!(input, rules::constant);
 
         Ok(())
     }
@@ -520,40 +585,44 @@ mod tests {
     #[test]
     fn test_const_string() -> Result<()> {
         let input = "const TypeName CONST_NAME = \"const value\";";
-        insta::assert_ron_snapshot!(rules::constant(input, &lookup(input))?);
+        assert_rule!(input, rules::constant);
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn test_const_with_javadoc() -> Result<()> {
-        let _input = r#"
-        /**
-         * Const docu
-         */
-        const TypeName CONST_NAME = 123;"#;
+        let input = r#"/**
+            * Const docu
+            */
+           const TypeName CONST_NAME = 123;"#;
+        assert_rule!(input, rules::constant);
 
-        unimplemented!()
+        Ok(())
     }
 
     #[test]
     fn test_const_with_annotation() -> Result<()> {
         let input = "@AnnotationName const TypeName CONST_NAME = 123;";
-        assert_ron_snapshot!(rules::constant(input, &lookup(input))?);
+        assert_rule!(input, rules::constant);
 
         Ok(())
     }
 
     #[test]
-    fn test_type_primitive() -> Result<()> {
+    fn test_type_primitive1() -> Result<()> {
         let input = "double";
         assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Primitive);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_rule!(input, rules::type_);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_primitive2() -> Result<()> {
         let input = "doublegum";
         assert!(rules::type_(input, &lookup(input))?.kind != types::TypeKind::Primitive);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_rule!(input, rules::type_);
 
         Ok(())
     }
@@ -562,7 +631,7 @@ mod tests {
     fn test_type_custom() -> Result<()> {
         let input = "TypeName";
         assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Custom);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_rule!(input, rules::type_);
 
         Ok(())
     }
@@ -570,8 +639,11 @@ mod tests {
     #[test]
     fn test_type_custom_with_namespace() -> Result<()> {
         let input = "com.example.TypeName";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Custom);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_eq!(
+            rules::type_(input, &lookup(input))?.kind,
+            types::TypeKind::Custom
+        );
+        assert_rule!(input, rules::type_);
 
         Ok(())
     }
@@ -579,8 +651,11 @@ mod tests {
     #[test]
     fn test_type_array() -> Result<()> {
         let input = "float []";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Array);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_eq!(
+            rules::type_(input, &lookup(input))?.kind,
+            types::TypeKind::Array
+        );
+        assert_rule!(input, rules::type_);
 
         // No array of String...
         let input = "String []";
@@ -592,8 +667,11 @@ mod tests {
     #[test]
     fn test_type_list() -> Result<()> {
         let input = "List <MyObject >";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::List);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_eq!(
+            rules::type_(input, &lookup(input))?.kind,
+            types::TypeKind::List
+        );
+        assert_rule!(input, rules::type_);
 
         // No List for type_primitives
         let input = "List<int>";
@@ -605,8 +683,11 @@ mod tests {
     #[test]
     fn test_type_map() -> Result<()> {
         let input = "Map<Key,List<V>>";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Map);
-        insta::assert_ron_snapshot!(rules::type_(input, &lookup(input))?);
+        assert_eq!(
+            rules::type_(input, &lookup(input))?.kind,
+            types::TypeKind::Map
+        );
+        assert_rule!(input, rules::type_);
 
         // No Map for type_primitives
         let input = "Map<int, String>";
@@ -647,34 +728,74 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_javadoc() -> Result<(), Box<dyn std::error::Error>> {
-        let _input = "/** This is a javadoc\n * comment*/rest";
-        let _input = "/**\n * JavaDoc title\n *\n * JavaDoc line1\n * JavaDoc line2\n */rest";
+        let input = "/** This is a javadoc\n * comment*/";
+        assert_eq!(
+            rules::javadoc(input, &lookup(input))?,
+            "This is a javadoc comment"
+        );
+
+        let input = "/**\n * JavaDoc title\n *\n * JavaDoc text1\n * JavaDoc text2\n*/";
+        assert_eq!(
+            rules::javadoc(input, &lookup(input))?,
+            "JavaDoc title\nJavaDoc text1 JavaDoc text2"
+        );
+
+        let input = r#"/**
+                * JavaDoc title
+                * @param Param1 Description
+                * @param Param2 Description
+                * 
+                * Description
+                */"#;
+        assert_eq!(
+            rules::javadoc(input, &lookup(input))?,
+            "JavaDoc title\n@param Param1 Description\n@param Param2 Description\nDescription"
+        );
 
         Ok(())
     }
 
     #[test]
-    fn test_annotation() -> Result<()> {
+    fn test_annotation1() -> Result<()> {
         let input = "@AnnotationName";
-        insta::assert_ron_snapshot!(rules::annotation(input, &lookup(input))?);
+        assert_rule!(input, rules::annotation);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation2() -> Result<()> {
         let input = "@AnnotationName()";
-        insta::assert_ron_snapshot!(rules::annotation(input, &lookup(input))?);
+        assert_rule!(input, rules::annotation);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation3() -> Result<()> {
         let input = "@AnnotationName( Hello)";
-        insta::assert_ron_snapshot!(rules::annotation(input, &lookup(input))?);
+        assert_rule!(input, rules::annotation);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation4() -> Result<()> {
         let input = "@AnnotationName(Hello=\"World\")";
-        insta::assert_ron_snapshot!(rules::annotation(input, &lookup(input))?);
+        assert_rule!(input, rules::annotation);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation5() -> Result<()> {
         let mut settings = insta::Settings::clone_current();
         settings.set_sort_maps(true);
         settings.bind_to_thread();
 
         let input = "@AnnotationName(Hello=\"World\", Hi, Servus= 3 )";
-        insta::assert_ron_snapshot!(rules::annotation(input, &lookup(input))?);
+        assert_rule!(input, rules::annotation);
 
         Ok(())
     }

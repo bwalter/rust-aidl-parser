@@ -10,16 +10,7 @@ Const(Const(
     kind: Custom,
     generic_types: [],
     definition: None,
-    symbol_range: Range(
-      start: Position(
-        offset: 22,
-        line_col: (1, 23),
-      ),
-      end: Position(
-        offset: 30,
-        line_col: (1, 31),
-      ),
-    ),
+    symbol_range: "...",
   ),
   value: "123",
   annotations: [
@@ -27,24 +18,7 @@ Const(Const(
       key_values: {},
     ),
   ],
-  symbol_range: Range(
-    start: Position(
-      offset: 31,
-      line_col: (1, 32),
-    ),
-    end: Position(
-      offset: 41,
-      line_col: (1, 42),
-    ),
-  ),
-  full_range: Range(
-    start: Position(
-      offset: 16,
-      line_col: (1, 17),
-    ),
-    end: Position(
-      offset: 48,
-      line_col: (1, 49),
-    ),
-  ),
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
 ))

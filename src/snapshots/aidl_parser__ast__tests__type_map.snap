@@ -12,16 +12,7 @@ Type(
       kind: Custom,
       generic_types: [],
       definition: None,
-      symbol_range: Range(
-        start: Position(
-          offset: 4,
-          line_col: (1, 5),
-        ),
-        end: Position(
-          offset: 7,
-          line_col: (1, 8),
-        ),
-      ),
+      symbol_range: "...",
     ),
     Type(
       name: "List",
@@ -32,40 +23,13 @@ Type(
           kind: Custom,
           generic_types: [],
           definition: None,
-          symbol_range: Range(
-            start: Position(
-              offset: 13,
-              line_col: (1, 14),
-            ),
-            end: Position(
-              offset: 14,
-              line_col: (1, 15),
-            ),
-          ),
+          symbol_range: "...",
         ),
       ],
       definition: None,
-      symbol_range: Range(
-        start: Position(
-          offset: 8,
-          line_col: (1, 9),
-        ),
-        end: Position(
-          offset: 15,
-          line_col: (1, 16),
-        ),
-      ),
+      symbol_range: "...",
     ),
   ],
   definition: None,
-  symbol_range: Range(
-    start: Position(
-      offset: 0,
-      line_col: (1, 1),
-    ),
-    end: Position(
-      offset: 16,
-      line_col: (1, 17),
-    ),
-  ),
+  symbol_range: "...",
 )
