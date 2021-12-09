@@ -20,6 +20,15 @@ pub struct Position {
     pub line_col: (usize, usize),
 }
 
+impl Position {
+    pub(crate) fn new(lookup: &line_col::LineColLookup, offset: usize) -> Self {
+        Position {
+            offset,
+            line_col: lookup.get_by_cluster(offset),
+        }
+    }
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Range {
     pub start: Position,
@@ -27,16 +36,9 @@ pub struct Range {
 }
 
 impl Range {
-    pub fn new(lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
-        let start = Position {
-            offset: start,
-            line_col: lookup.get_by_cluster(start),
-        };
-
-        let end = Position {
-            offset: end,
-            line_col: lookup.get_by_cluster(end),
-        };
+    pub(crate) fn new(lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+        let start = Position::new(lookup, start);
+        let end = Position::new(lookup, end);
 
         Range { start, end }
     }
@@ -176,6 +178,7 @@ pub enum TypeKind {
     List,
     String,
     Custom,
+    Invalid,
 }
 
 #[derive(Serialize, Debug, PartialEq)]

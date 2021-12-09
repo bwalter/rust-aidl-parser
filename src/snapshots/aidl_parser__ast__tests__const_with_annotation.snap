@@ -1,9 +1,9 @@
 ---
 source: src/ast.rs
-expression: "rules::constant(input, &lookup(input))?"
+expression: "rules::const_(input, &lookup(input))?"
 
 ---
-Const(Const(
+Const(
   name: "CONST_NAME",
   const_type: Type(
     name: "TypeName",
@@ -21,4 +21,4 @@ Const(Const(
   doc: None,
   symbol_range: "...",
   full_range: "...",
-))
+)

@@ -3,7 +3,7 @@ source: src/ast.rs
 expression: "rules::method(input, &lookup(input))?"
 
 ---
-Method(Method(
+Method(
   oneway: false,
   name: "myMethod",
   return_type: Type(
@@ -32,4 +32,4 @@ Method(Method(
   doc: None,
   symbol_range: "...",
   full_range: "...",
-))
+)

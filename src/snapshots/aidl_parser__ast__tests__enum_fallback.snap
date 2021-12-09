@@ -9,13 +9,6 @@ Enum(
     EnumElement(
       name: "ELEMENT1",
       value: Some("3"),
-      doc: Some("element1 docu"),
-      symbol_range: "...",
-      full_range: "...",
-    ),
-    EnumElement(
-      name: "ELEMENT2",
-      value: Some("\"quattro\""),
       doc: None,
       symbol_range: "...",
       full_range: "...",

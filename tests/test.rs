@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 #[test]
 fn test_parse() -> Result<()> {
@@ -36,12 +36,49 @@ fn test_parse() -> Result<()> {
     "#;
 
     let inputs = [interface_aidl, enum_aidl, parcelable_aidl];
-    let files = aidl_parser::parse(&inputs)?;
+    let file_results = aidl_parser::parse(&inputs);
+    let file = file_results
+        .into_iter()
+        .next()
+        .unwrap()
+        .file
+        .context("Could not parse file")?;
 
-    insta::assert_ron_snapshot!(files[0], {
+    insta::assert_ron_snapshot!(file, {
         ".**.symbol_range" => "...",
         ".**.full_range" => "...",
     });
+
+    Ok(())
+}
+
+#[test]
+fn test_parse_error() -> Result<()> {
+    let aidl = "package x.y.z; completly wrong item {}";
+
+    let inputs = [aidl];
+    let file_results = aidl_parser::parse(&inputs);
+
+    assert_eq!(file_results.len(), 1);
+    assert!(file_results[0].file.is_none());
+    assert_eq!(file_results[0].diagnostics.len(), 1);
+
+    insta::assert_ron_snapshot!(file_results[0].diagnostics[0], @r###"
+    Diagnostic(
+      kind: Error,
+      range: Range(
+        start: Position(
+          offset: 15,
+          line_col: (1, 16),
+        ),
+        end: Position(
+          offset: 38,
+          line_col: (1, 39),
+        ),
+      ),
+      text: "Invalid file item (expected valid \"interface\", \"parcelable\" or \"enum\")",
+    )
+    "###);
 
     Ok(())
 }

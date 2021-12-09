@@ -1,12 +1,29 @@
 mod ast;
-mod error;
+mod diagnostic;
 pub mod types;
 
-pub fn parse(inputs: &[&str]) -> Result<Vec<types::File>, error::ParseError> {
-    let files = inputs.iter().map(|i| {
+pub type ParseResult = Vec<ParseFile>;
+
+pub struct ParseFile {
+    pub file: Option<types::File>,
+    pub diagnostics: Vec<diagnostic::Diagnostic>,
+}
+
+pub fn parse(inputs: &[&str]) -> ParseResult {
+    let file_results = inputs.iter().map(|i| {
         let lookup = line_col::LineColLookup::new(i);
-        ast::rules::file(i, &lookup).map_err(error::ParseError::Peg)
+        let mut diagnostics = Vec::new();
+
+        let rule_result = ast::rules::file(i, &lookup, &mut diagnostics);
+
+        match rule_result {
+            Ok(file) => ParseFile { file, diagnostics },
+            Err(e) => ParseFile {
+                file: None,
+                diagnostics: Vec::from([diagnostic::from_peg_error(&lookup, e)]),
+            },
+        }
     });
 
-    files.collect()
+    file_results.collect()
 }

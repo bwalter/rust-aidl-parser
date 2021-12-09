@@ -1,0 +1,12 @@
+---
+source: src/ast.rs
+expression: "rules::type_(input, &lookup(input), &mut diagnostics)?"
+
+---
+Type(
+  name: "tchou_tchou.",
+  kind: Invalid,
+  generic_types: [],
+  definition: None,
+  symbol_range: "...",
+)

@@ -1,26 +1,11 @@
 ---
 source: src/ast.rs
-expression: "rules::interface(input, &lookup(input))?"
+expression: "rules::interface(input, &lookup(input), &mut diagnostics)?"
 
 ---
 Interface(
   name: "Potato",
   elements: [
-    Const(Const(
-      name: "const1",
-      const_type: Type(
-        name: "int",
-        kind: Primitive,
-        generic_types: [],
-        definition: None,
-        symbol_range: "...",
-      ),
-      value: "1",
-      annotations: [],
-      doc: Some("const1 docu"),
-      symbol_range: "...",
-      full_range: "...",
-    )),
     Method(Method(
       oneway: false,
       name: "method1",
@@ -32,21 +17,6 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
-      annotations: [],
-      doc: Some("method1 docu"),
-      symbol_range: "...",
-      full_range: "...",
-    )),
-    Const(Const(
-      name: "const2",
-      const_type: Type(
-        name: "String",
-        kind: String,
-        generic_types: [],
-        definition: None,
-        symbol_range: "...",
-      ),
-      value: "\"two\"",
       annotations: [],
       doc: None,
       symbol_range: "...",
@@ -63,6 +33,21 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
+      annotations: [],
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    )),
+    Const(Const(
+      name: "const2",
+      const_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      value: "123",
       annotations: [],
       doc: None,
       symbol_range: "...",

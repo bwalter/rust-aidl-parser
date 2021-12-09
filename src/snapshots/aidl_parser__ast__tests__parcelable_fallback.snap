@@ -16,11 +16,11 @@ Parcelable(
         symbol_range: "...",
       ),
       symbol_range: "...",
-      doc: Some("member1 docu"),
+      doc: None,
       full_range: "...",
     ),
     Member(
-      name: "member2",
+      name: "member3",
       member_type: Type(
         name: "String",
         kind: String,

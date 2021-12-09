@@ -3,7 +3,7 @@ source: src/ast.rs
 expression: "rules::interface(input, &lookup(input))?"
 
 ---
-Interface(Interface(
+Interface(
   name: "Potato",
   elements: [],
   annotations: [
@@ -17,4 +17,4 @@ Interface(Interface(
   doc: None,
   full_range: "...",
   symbol_range: "...",
-))
+)

@@ -1,9 +1,9 @@
 ---
 source: src/ast.rs
-expression: "rules::enumeration(input, &lookup(input))?"
+expression: "rules::enum_(input, &lookup(input))?"
 
 ---
-Enum(Enum(
+Enum(
   name: "Paprika",
   elements: [
     EnumElement(
@@ -25,4 +25,4 @@ Enum(Enum(
   doc: None,
   full_range: "...",
   symbol_range: "...",
-))
+)

@@ -1,91 +1,210 @@
+use crate::diagnostic::{Diagnostic, DiagnosticKind};
 use crate::types;
 
 peg::parser! {
-    pub grammar rules(lookup: &'input line_col::LineColLookup) for str {
+    pub(crate) grammar rules(lookup: &'input line_col::LineColLookup, diagnostics: &mut Vec<Diagnostic>) for str {
+        use peg::ParseLiteral;
         use std::collections::HashMap;
 
-        pub rule file() -> types::File
-            = _ package:package() _
+        pub(crate) rule file() -> Option<types::File> =
+            _ package:package() _
             imports:(import() ** _) _
-            item:(interface() / enumeration() / parcelable()) _ {
-            types::File {
-                package,
-                imports,
-                item,
+            item:(item_interface() / item_parcelable() / item_enum() / item_fallback()) _ {
+
+            item.map(|item| {
+                types::File {
+                    package,
+                    imports,
+                    item,
+                }
+            })
+        }
+
+        pub(crate) rule package() -> types::Package =
+            "package" whitespace_or_eol() _ p1:position!()
+            name:qualified_name()
+            p2:position!() _ ";" {
+
+            types::Package {
+                name: name.to_owned(),
+                symbol_range: types::Range::new(lookup, p1, p2 - 1),
             }
         }
 
-        pub rule package() -> types::Package
-            = "package" whitespace_or_eol() _ p1:position!()
-                name:$((ident() ".")* ident())
+        pub(crate) rule import() -> types::Import =
+            "import" whitespace_or_eol() _ p1:position!()
+            name:qualified_name()
             p2:position!() _ ";" {
-               types::Package {
-                   name: name.to_owned(),
-                   symbol_range: types::Range::new(lookup, p1, p2 - 1),
-               }
-            }
 
-        pub rule import() -> types::Import
-            = "import" whitespace_or_eol() _ p1:position!()
-                name:$((ident() ".")* ident())
-            p2:position!() _ ";" {
-               types::Import {
-                   name: name.to_owned(),
-                   symbol_range: types::Range::new(lookup, p1, p2 - 1),
-               }
+            types::Import {
+                name: name.to_owned(),
+                symbol_range: types::Range::new(lookup, p1, p2 - 1),
             }
+        }
 
-        pub rule interface() -> types::Item
+        rule item_interface() -> Option<types::Item> =
+            i:interface() {
+
+            Some(types::Item::Interface(i))
+        }
+
+        rule item_parcelable() -> Option<types::Item> =
+            p:parcelable() {
+
+            Some(types::Item::Parcelable(p))
+        }
+
+        rule item_enum() -> Option<types::Item> =
+            e:enum_() {
+
+            Some(types::Item::Enum(e))
+        }
+
+        rule item_fallback() -> Option<types::Item> =
+            p1:position!() [^'{']* "{" [^'}']* "}" p2:position!() {
+
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                text: "Invalid file item (expected valid \"interface\", \"parcelable\" or \"enum\")".into(),
+                range: types::Range::new(lookup, p1, p2),
+            });
+            None
+        }
+
+        pub(crate) rule interface() -> types::Interface
             = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "interface" whitespace_or_eol() _
-            sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
-            _ "{" _ elements:(method() / constant())* _ "}"
+            sp1:position!() name:$ident() sp2:position!()
+            _ "{" _ elements:interface_element_any()* _ "}"
             fp2:position!() {
-               types::Item::Interface(types::Interface {
-                   name: name.to_owned(),
-                   elements,
-                   annotations,
-                   doc: jd,
-                   full_range: types::Range::new(lookup, fp1, fp2 - 1),
-                   symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
-               })
+
+                let elements: Vec<types::InterfaceElement> = elements.into_iter().flatten().collect();
+
+                types::Interface {
+                    name: name.to_owned(),
+                    elements,
+                    annotations,
+                    doc: jd,
+                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
+                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
+                }
             }
 
-        pub rule parcelable() -> types::Item
-            = jd:javadoc()? annotations:annotations() _ fp1:position!() "parcelable" whitespace_or_eol() _
-            sp1:position!() name:$((ident() ".")* ident()) sp2:position!()
-            _ "{" _ members:member()* _ "}"
+        // Accept anything which is an interface element and handle inner errors via diagnostics
+        rule interface_element_any() -> Option<types::InterfaceElement> =
+            s:$(javadoc()? parse_element_until(";") ";") _ {
+
+            interface_element(s, lookup, diagnostics)
+                .unwrap_or_else(|e| {
+                    // Here we are sure that it is an invalid method because interface_element_const_any()
+                    // does not fail for consts
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: format!("Invalid method: expected {}", e.expected.to_string()),
+                        range: types::Range::new(lookup, e.location.line, e.location.column),
+                    });
+                    None
+                })
+        }
+
+        pub(crate) rule interface_element() -> Option<types::InterfaceElement> =
+            interface_element_const_any() / interface_element_method()
+
+        // Accept anything which is a const and handle inner errors via diagnostics
+        rule interface_element_const_any() -> Option<types::InterfaceElement> =
+            s:$((javadoc() _)? "const" &whitespace_or_eol() _ parse_element_until(";") ";") {
+
+            const_(s, lookup, diagnostics)
+                .map(|c| Some(types::InterfaceElement::Const(c)))
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: format!("Invalid const: expected {}", e.expected.to_string()),
+                        range: types::Range::new(lookup, e.location.line, e.location.column),
+                    });
+                    None
+                })
+        }
+
+        rule interface_element_method() -> Option<types::InterfaceElement> = m:method() {
+            Some(types::InterfaceElement::Method(m))
+        }
+
+        pub(crate) rule parcelable() -> types::Parcelable =
+            jd:javadoc()? annotations:annotations() _ fp1:position!() "parcelable" whitespace_or_eol() _
+            sp1:position!() name:$ident() sp2:position!()
+            _ "{" _ members:parcelable_member_any()* _ "}"
             fp2:position!() {
-               types::Item::Parcelable(types::Parcelable {
-                   name: name.to_owned(),
-                   members,
-                   annotations,
-                   doc: jd,
-                   full_range: types::Range::new(lookup, fp1, fp2 - 1),
-                   symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
-               })
+
+                let members: Vec<types::Member> = members.into_iter().flatten().collect();
+
+                types::Parcelable {
+                    name: name.to_owned(),
+                    members,
+                    annotations,
+                    doc: jd,
+                    full_range: types::Range::new(lookup, fp1, fp2 - 1),
+                    symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
+                }
             }
 
-        pub rule enumeration() -> types::Item
-            = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "enum" whitespace_or_eol() _
-            sp1:position!() name:$((ident() ".")* ident()) sp2:position!() _
-            _ "{" _ elements:(enum_element() ++ (_ "," _)) _ ","? _ "}"
-            fp2:position!() {
-               types::Item::Enum(types::Enum {
-                   name: name.to_owned(),
-                   elements,
-                   annotations,
-                   doc: jd,
-                   full_range: types::Range::new(lookup, fp1, fp2 - 1),
-                   symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
-               })
-            }
+        // Accept anything which is a member and handle inner errors via diagnostics
+        rule parcelable_member_any() -> Option<types::Member> = s:$([^';']* ";") {
 
-        pub rule method() -> types::InterfaceElement
-            = jd:javadoc() ? _ annotations:annotations() _ fp1:position!() _ oneway:("oneway" whitespace_or_eol())? _ rt:type_() _ sp1:position!() name:ident() sp2:position!() _
+            member(s, lookup, diagnostics)
+                .map(Some)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: format!("Invalid member: expected {}", e.expected.to_string()),
+                        range: types::Range::new(lookup, e.location.line, e.location.column),
+                    });
+                    None
+                })
+        }
+
+        pub(crate) rule enum_() -> types::Enum =
+            jd:javadoc()? _ annotations:annotations() _ fp1:position!() "enum" whitespace_or_eol() _
+            sp1:position!() name:$ident() sp2:position!() _
+            _ "{"
+                _ elements:enum_element_any() ** (_ "," _)
+            _ ","?  _ "}"
+            fp2:position!() {
+
+            let elements: Vec<types::EnumElement> = elements.into_iter().flatten().collect();
+
+            types::Enum {
+                name: name.to_owned(),
+                elements,
+                annotations,
+                doc: jd,
+                full_range: types::Range::new(lookup, fp1, fp2 - 1),
+                symbol_range: types::Range::new(lookup, sp1, sp2 - 1),
+            }
+        }
+
+        // Accept anything which is an enum element and handle inner errors via diagnostics
+        rule enum_element_any() -> Option<types::EnumElement> =
+            s:$parse_element_until(",") {
+
+            enum_element(s, lookup, diagnostics)
+                .map(Some)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: format!("Invalid enum element: expected {}", e.expected.to_string()),
+                        range: types::Range::new(lookup, e.location.line, e.location.column),
+                    });
+                    None
+                })
+        }
+
+        pub(crate) rule method() -> types::Method =
+            jd:javadoc() ? _ annotations:annotations() _ fp1:position!() _ oneway:("oneway" whitespace_or_eol())? _ rt:type_any() _ sp1:position!() name:ident() sp2:position!() _
             "(" _ args:(method_arg() ** (_ "," _)) _ ","? _ ")" _
             ("=" _ digit()+)? _
             ";" _ fp2:position!() {
-            types::InterfaceElement::Method(types::Method {
+
+            types::Method {
                 oneway: oneway.is_some(),
                 name: name.to_owned(),
                 return_type: rt,
@@ -94,12 +213,13 @@ peg::parser! {
                 doc: jd,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
-            })
+            }
         }
 
-        pub rule method_arg() -> types::Arg = method_arg_with_name() / method_arg_without_name()
-        pub rule method_arg_with_name() -> types::Arg
-            = jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_() whitespace_or_eol() _ n:ident() {
+        pub(crate) rule method_arg() -> types::Arg = method_arg_with_name() / method_arg_without_name()
+        pub(crate) rule method_arg_with_name() -> types::Arg =
+            jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_any() whitespace_or_eol() _ n:ident() {
+
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: Some(n.to_owned()),
@@ -108,8 +228,9 @@ peg::parser! {
                 doc: jd,
             }
         }
-        pub rule method_arg_without_name() -> types::Arg
-            = jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_() {
+        pub(crate) rule method_arg_without_name() -> types::Arg =
+            jd:javadoc()? _ annotations:annotations() _ d:direction()? _ t:type_any() {
+
             types::Arg {
                 direction: d.unwrap_or(types::Direction::Unspecified),
                 name: None,
@@ -119,11 +240,12 @@ peg::parser! {
             }
         }
 
-        pub rule member() -> types::Member
-            = jd:javadoc()? _ annotations() _ fp1:position!() _ t:type_() _
+        pub(crate) rule member() -> types::Member =
+            jd:javadoc()? _ annotations() _ fp1:position!() _ t:type_any() _
             sp1:position!() name:ident() sp2:position!() _
             ("=" _ v:value())? _
             ";" _ fp2:position!() {
+
             types::Member {
                 name: name.to_owned(),
                 member_type: t,
@@ -133,13 +255,13 @@ peg::parser! {
             }
         }
 
-        // Note: currently no check for the correct value type
-        pub rule constant() -> types::InterfaceElement
-            = jd:javadoc()? _ annotations:annotations() _ fp1:position!() "const" whitespace_or_eol() _ t:type_() _
+        pub(crate) rule const_() -> types::Const =
+            jd:javadoc()? _ annotations:annotations() _ fp1:position!() "const" whitespace_or_eol() _ t:type_any() _
             sp1:position!() name:ident() sp2:position!() _
             "=" _ v:value() _
             ";" _ fp2:position!() {
-            types::InterfaceElement::Const(types::Const {
+
+            types::Const {
                 name: name.to_owned(),
                 const_type: t,
                 value: v.to_owned(),
@@ -147,30 +269,83 @@ peg::parser! {
                 doc: jd,
                 symbol_range: types::Range::new(lookup, sp1, sp2),
                 full_range: types::Range::new(lookup, fp1, fp2),
-            })
+            }
         }
 
-        pub rule enum_element() -> types::EnumElement
-            = jd:javadoc()? _
+        pub(crate) rule enum_element() -> types::EnumElement =
+            jd:javadoc()? _
             fp1:position!()
             sp1:position!() _ n:ident() sp2:position!() _
-            ev:equals_value()?
-            fp2:position!()
-            {
-                types::EnumElement {
-                    name: n.to_owned(),
-                    value: ev.map(str::to_owned),
-                    doc: jd,
-                    symbol_range: types::Range::new(lookup, sp1, sp2),
-                    full_range: types::Range::new(lookup, fp1, fp2),
-                }
+            ev:equals_value()?// &(_ ("," / "}"))
+            fp2:position!() {
+
+            types::EnumElement {
+                name: n.to_owned(),
+                value: ev.map(str::to_owned),
+                doc: jd,
+                symbol_range: types::Range::new(lookup, sp1, sp2),
+                full_range: types::Range::new(lookup, fp1, fp2),
             }
+        }
 
-        pub rule type_() -> types::Type
-            = type_array() / type_list() / type_map() / type_primitive() / type_void() / type_string() / type_custom()
+        // Parse either valid type or fallback to an "InvalidType" (with diagnostic)
+        pub(crate) rule type_any() -> types::Type =
+            p1:position!() s:$(
+                // Examples of recognized, invalid types:
+                // - woof
+                // - a.qualified.name
+                // - freg.rgerger. <fefe ,fef > [ ]
+                ((ident_char()) / ['.'] / (_ generic()) / (_ square_brackets()))+
+            ) p2:position!() &(!ident_char() / ![_]) {
 
-        rule type_array() -> types::Type
-            = p1:position!() t:(type_primitive() / type_custom()) _ "[" _ "]" p2:position!() {  // type_custom is tolerated because it could be an enum
+            type_(s, lookup, diagnostics)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: "Invalid type".into(),
+                        range: types::Range::new(lookup, p1, p2),
+                    });
+
+                    types::Type {
+                        name: s.to_owned(),
+                        kind: types::TypeKind::Invalid,
+                        generic_types: Vec::new(),
+                        definition: None,
+                        symbol_range: types::Range::new(lookup, p1, p2),
+                    }
+                })
+        }
+
+        pub(crate) rule type_() -> types::Type =
+            t:(type_array_any() / type_list_any() / type_map_any() / type_primitive() / type_void() / type_string() / type_custom())
+            (whitespace_or_eol() / ![_]) { t }
+
+        // Parse either valid array type or fallback to an "InvalidType" (with diagnostic)
+        rule type_array_any() -> types::Type =
+            p1:position!() s:$(
+                (ident_char() / (_ ['.'] _))+ _ "[" _ "]"
+            ) p2:position!() &(whitespace_or_eol() / ![_]) {
+
+            type_array(s, lookup, diagnostics)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: "Invalid array: only primitives or enums are allowed. For objects, please use List<Object>".into(),
+                        range: types::Range::new(lookup, p1, p2),
+                    });
+
+                    types::Type {
+                        name: s.to_owned(),
+                        kind: types::TypeKind::Invalid,
+                        generic_types: Vec::new(),
+                        definition: None,
+                        symbol_range: types::Range::new(lookup, p1, p2),
+                    }
+                })
+        }
+
+        pub(crate) rule type_array() -> types::Type =
+            p1:position!() t:(type_primitive() / type_custom()) _ "[" _ "]" p2:position!() {  // type_custom is tolerated because it could be an enum
             types::Type {
                 name: "Array".to_owned(),
                 kind: types::TypeKind::Array,
@@ -180,8 +355,30 @@ peg::parser! {
             }
         }
 
-        rule type_list() -> types::Type
-            = p1:position!() l:$"List" _ "<" _ t:type_object() _ ">" p2:position!() {  // type_custom is tolerated because it could be an enum
+        // Parse either valid list type or fallback to an "InvalidType" (with diagnostic)
+        rule type_list_any() -> types::Type =
+            p1:position!() s:$("List" _ generic()) p2:position!() {
+
+            type_list(s, lookup, diagnostics)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: "Invalid list: the value must be an object (not a primitive)".into(),
+                        range: types::Range::new(lookup, p1, p2),
+                    });
+
+                    types::Type {
+                        name: s.to_owned(),
+                        kind: types::TypeKind::Invalid,
+                        generic_types: Vec::new(),
+                        definition: None,
+                        symbol_range: types::Range::new(lookup, p1, p2),
+                    }
+                })
+        }
+
+        pub(crate) rule type_list() -> types::Type =
+            p1:position!() l:$"List" _ "<" _ t:type_object() _ ">" p2:position!() {  // type_custom is tolerated because it could be an enum
             types::Type {
                 name: l.to_owned(),
                 kind: types::TypeKind::List,
@@ -191,8 +388,31 @@ peg::parser! {
             }
         }
 
-        rule type_map() -> types::Type
-            = p1:position!() m:$"Map" _ "<" _ k:type_object() _ "," _ v:type_object() ">" p2:position!() {  // type_custom is tolerated because it could be an enum
+        // Parse either valid map type or fallback to an "InvalidType" (with diagnostic)
+        rule type_map_any() -> types::Type =
+            p1:position!() s:$("Map" _ generic()) p2:position!() {
+
+            type_map(s, lookup, diagnostics)
+                .unwrap_or_else(|e| {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        text: "Invalid map: both key and value must be an object (not a primitive)".into(),
+                        range: types::Range::new(lookup, p1, p2),
+                    });
+
+                    types::Type {
+                        name: s.to_owned(),
+                        kind: types::TypeKind::Invalid,
+                        generic_types: Vec::new(),
+                        definition: None,
+                        symbol_range: types::Range::new(lookup, p1, p2),
+                    }
+                })
+        }
+
+        pub(crate) rule type_map() -> types::Type =
+            p1:position!() m:$"Map" _ "<" _ k:type_object() _ "," _ v:type_object() ">" p2:position!() {  // type_custom is tolerated because it could be an enum
+
             types::Type {
                 name: m.to_owned(),
                 kind: types::TypeKind::Map,
@@ -202,47 +422,47 @@ peg::parser! {
             }
         }
 
-        rule type_void() -> types::Type
-            = p1:position!() t:$"void" p2:position!() !ident_char() {
+        rule type_void() -> types::Type =
+           p1:position!() t:$"void" p2:position!() !ident_char() {
             types::Type::simple_type(t, types::TypeKind::Void, lookup, p1, p2)
         }
 
-        rule type_primitive() -> types::Type
-            = p1:position!() t:$("byte" / "short" / "int" / "long" / "float" / "double" / "boolean" / "char") p2:position!() !ident_char() {
+        rule type_primitive() -> types::Type =
+            p1:position!() t:$("byte" / "short" / "int" / "long" / "float" / "double" / "boolean" / "char") p2:position!() !ident_char() {
             types::Type::simple_type(t, types::TypeKind::Primitive, lookup, p1, p2)
         }
 
-        rule type_string() -> types::Type
-            = p1:position!() t:$("String" / "CharSequence") p2:position!() !ident_char() {
+        rule type_string() -> types::Type =
+            p1:position!() t:$("String" / "CharSequence") p2:position!() !ident_char() {
             types::Type::simple_type(t, types::TypeKind::String, lookup, p1, p2)
         }
 
-        rule type_custom() -> types::Type
-            = !type_forbidden_custom() _ p1:position!() t:$((ident() ++ (_ "." _))) p2:position!() !ident_char() {
+        rule type_custom() -> types::Type =
+            !(type_forbidden_custom() _) p1:position!() t:qualified_name() p2:position!() !ident_char() {
             types::Type::simple_type(t, types::TypeKind::Custom, lookup, p1, p2)
         }
 
-        rule type_object() -> types::Type
-            = !(type_array() / type_primitive()) _ t:type_() { t }
+        rule type_object() -> types::Type =
+            t:(type_string() / type_custom() / type_list_any() / type_map_any()) { t }
 
-        rule type_forbidden_custom()
-            = ("List" / "Map" / type_primitive() / type_void() / type_string()) !ident_char()
+        rule type_forbidden_custom() =
+            ("List" / "Map" / type_primitive() / type_void() / type_string()) !ident_char()
 
-        rule direction() -> types::Direction
-            = d:(direction_in() / direction_out() / direction_inout()) !ident_char() { d }
+        rule direction() -> types::Direction =
+            d:(direction_in() / direction_out() / direction_inout()) !ident_char() { d }
 
         rule direction_in() -> types::Direction = "in" { types::Direction::In }
         rule direction_out() -> types::Direction = "out" { types::Direction::Out }
         rule direction_inout() -> types::Direction = "inout" { types::Direction::InOut }
 
-        pub rule annotations() -> Vec<types::Annotation> = annotation() ** _
-        pub rule annotation() -> types::Annotation = annotation_with_params() / annotation_without_param()
-        pub rule annotation_without_param() -> types::Annotation
-            = "@" ident() {
+        pub(crate) rule annotations() -> Vec<types::Annotation> = annotation() ** _
+        pub(crate) rule annotation() -> types::Annotation = annotation_with_params() / annotation_without_param()
+        pub(crate) rule annotation_without_param() -> types::Annotation =
+            "@" ident() {
             types::Annotation { key_values: HashMap::new() }
         }
-        pub rule annotation_with_params() -> types::Annotation
-            = "@" ident()
+        pub(crate) rule annotation_with_params() -> types::Annotation =
+            "@" ident()
             _ "(" _ v:(annotation_param() ** (_ "," _)) _ ")" {
             types::Annotation { key_values: v.into_iter().collect() }
         }
@@ -250,19 +470,29 @@ peg::parser! {
             (k.to_owned(), v.map(str::to_owned))
         }
 
-        pub rule value() -> &'input str
-            = $(number_value() / value_string() / value_empty_object() / "null")
+        pub(crate) rule generic() = "<" _ (block_comment() / (!("<" / ">") [_]) / generic())* _ ">"
+        pub(crate) rule square_brackets() = "[" _ "]"
+
+        pub(crate) rule parse_element_until(without: &str) -> &'input str = $((
+            value_string() / line_comment() / block_comment() / generic() / square_brackets() /
+                (!(##parse_string_literal(without) / "}") [_])
+        )+)
+        rule semi_column() -> &'input str = $";"
+        rule comma() -> &'input str = $","
+
+        pub(crate) rule value() -> &'input str =
+            $(number_value() / value_string() / value_empty_object() / "null") / expected!("value (number, string or empty object)")
         rule number_value() -> &'input str = $(
             "-"? digit()* "." digit()+ "f"?  // with decimal point
             / "-"? digit()+ "f"?  // without decimal point
         )
 
-        rule value_string() = "\"" (!"\"" [_])* "\""
+        rule value_string() = "\"" (!['"' | '\n' | '\r'] [_])* "\""
         rule value_empty_object() = "{" _ "}"
         rule equals_value() -> &'input str = _ "=" _ v:value() { v }
 
-        pub rule javadoc() -> String
-            = javadoc_begin() _
+        pub(crate) rule javadoc() -> String =
+            javadoc_begin() _
             s:$(
                 (!javadoc_end() [_])*
             ) _
@@ -272,26 +502,27 @@ peg::parser! {
         rule javadoc_begin() = "/**";
         rule javadoc_end() = _ "*/";
 
-        rule block_comment() -> &'input str
-            = $(!(javadoc() _ (
+        rule block_comment() -> &'input str =
+            quiet!{$(!(javadoc() _ (
                 // All rules which extract the Javadoc:
-                interface() / parcelable() / enumeration() / method() / method_arg() /
-                member() / constant() / enum_element()
-            )) "/*" (!"*/" [_])* "*/")
+                interface() / parcelable() / enum_() / method() / method_arg() /
+                interface_element_any() / parcelable_member_any() / enum_element_any()
+            )) "/*" (!"*/" [_])* "*/")}
         rule line_comment() -> &'input str = s:$(quiet!{
             "//" (!(['\n' | '\r']) [_])*
         }) { s }
         rule whitespace() = quiet!{[ ' ' | '\t' ]}
-        rule whitespace_or_eol() = quiet!{[ ' ' | '\n' | '\r' | '\t' ]}
+        rule whitespace_or_eol() = quiet!{[ ' ' | '\n' | '\r' | '\t']}
         rule comment() = quiet!{block_comment() / line_comment()}
         rule _ = quiet!{(whitespace_or_eol() / comment())*}
         rule eol() = quiet!{"\n" / "\r\n"}
 
-        rule digit() = ['0'..='9']
-        rule alphanumeric() = ['a'..='z' | 'A'..='Z' | '0'..='9']
-        rule ident_first_char() = (['a'..='z' | 'A'..='Z'] / "_")
-        rule ident_char() = alphanumeric() / "_"
+        rule digit() = quiet!{['0'..='9']}
+        rule alphanumeric() = quiet!{['a'..='z' | 'A'..='Z' | '0'..='9']}
+        rule ident_first_char() = quiet!{(['a'..='z' | 'A'..='Z'] / "_")}
+        rule ident_char() = quiet!{alphanumeric() / "_"}
         rule ident() -> &'input str = $(ident_first_char() ident_char()*) / expected!("identifier")
+        rule qualified_name() -> &'input str = $(ident() ++ (_ "." _))
     }
 }
 
@@ -323,20 +554,65 @@ mod tests {
         line_col::LineColLookup::new(input)
     }
 
+    // Replace ranges into "..." and check parse output via insta Ron snapshot
     macro_rules! assert_rule {
         ($input:ident, $rule:expr) => {
-            ::insta::assert_ron_snapshot!($rule($input, &lookup($input))?, {
+            let mut diagnostics = Vec::new();
+            ::insta::assert_ron_snapshot!($rule($input, &lookup($input), &mut diagnostics)?, {
+                ".**.symbol_range" => "...",
+                ".**.full_range" => "...",
+            });
+            $rule($input, &lookup($input), &mut diagnostics)?;
+            assert_eq!(diagnostics, &[]);
+        };
+
+        ($input:ident, $rule:expr, $diag:expr) => {
+            ::insta::assert_ron_snapshot!($rule($input, &lookup($input), $diag)?, {
                 ".**.symbol_range" => "...",
                 ".**.full_range" => "...",
             });
         };
+    }
 
-        ($input:ident, $rule:expr, @$snap:literal) => {
-            ::insta::assert_ron_snapshot!($rule($input, &lookup($input))?, {
-                ".**.symbol_range" => "...",
-                ".**.full_range" => "...",
-            }, @$snap);
+    macro_rules! assert_diagnostics {
+        ($diag:expr, @$snapshot:literal) => {
+            ::insta::assert_ron_snapshot!($diag, {
+                ".**.range" => "...",
+            }, @$snapshot);
         };
+    }
+
+    #[test]
+    fn test_file() -> Result<()> {
+        let input = r#"package x.y.z;
+            import a.b.c;
+            interface MyInterface {}
+        "#;
+        assert_rule!(input, rules::file);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_with_errors() -> Result<()> {
+        let input = r#"package x.y.z;
+            import a.b.c;
+            oops_interface MyInterface {}
+        "#;
+        let mut diagnostics = Vec::new();
+        assert_eq!(rules::file(input, &lookup(input), &mut diagnostics)?, None);
+
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid file item (expected valid \"interface\", \"parcelable\" or \"enum\")",
+          ),
+        ]
+        "###);
+
+        Ok(())
     }
 
     #[test]
@@ -395,13 +671,30 @@ mod tests {
     }
 
     #[test]
-    fn test_interface_error_inside() -> Result<()> {
+    fn test_interface_with_errors() -> Result<()> {
         let input = r#"interface Potato {
             String method1();
-            completly_unexpected;
             int method2();
+            int oops_not_a_valid_method;
+            const String const2 = 123;
+            const oops_not_a_valid_const;
         }"#;
-        assert!(rules::interface(input, &lookup(input)).is_err());
+        let mut diagnostics = Vec::new();
+        assert_rule!(input, rules::interface, &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid method: expected \"(\"",
+          ),
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid const: expected one of \"<\", \"[\", [\'.\'], identifier",
+          ),
+        ]
+        "###);
 
         Ok(())
     }
@@ -422,6 +715,28 @@ mod tests {
     }
 
     #[test]
+    fn test_parcelable_with_errors() -> Result<()> {
+        let input = r#"parcelable Tomato {
+            int member1;
+            wrongmember3;
+            String member3;
+        }"#;
+        let mut diagnostics = Vec::new();
+        assert_rule!(input, rules::parcelable, &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid member: expected one of \"<\", \"[\", [\'.\'], identifier",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_enum() -> Result<()> {
         let input = r#"enum Paprika {
             /**
@@ -432,7 +747,35 @@ mod tests {
             ELEMENT2 = "quattro",
             ELEMENT3
         }"#;
-        assert_rule!(input, rules::enumeration);
+        assert_rule!(input, rules::enum_);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_enum_with_errors() -> Result<()> {
+        let input = r#"enum Paprika {
+            ELEMENT1 = 3,
+            ELEMENT2 == "quattro",
+            ELEMENT3,
+            0843
+        }"#;
+        let mut diagnostics = Vec::new();
+        assert_rule!(input, rules::enum_, &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid enum element: expected one of \"-\", \".\", \"\\\"\", \"null\", \"{\", value (number, string or empty object)",
+          ),
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid enum element: expected one of \"/**\", identifier",
+          ),
+        ]
+        "###);
 
         Ok(())
     }
@@ -443,7 +786,7 @@ mod tests {
             ELEMENT1,
             ELEMENT2,
         }"#;
-        assert_rule!(input, rules::enumeration);
+        assert_rule!(input, rules::enum_);
 
         Ok(())
     }
@@ -577,7 +920,7 @@ mod tests {
     #[test]
     fn test_const_num() -> Result<()> {
         let input = "const int CONST_NAME = 123 ;";
-        assert_rule!(input, rules::constant);
+        assert_rule!(input, rules::const_);
 
         Ok(())
     }
@@ -585,7 +928,7 @@ mod tests {
     #[test]
     fn test_const_string() -> Result<()> {
         let input = "const TypeName CONST_NAME = \"const value\";";
-        assert_rule!(input, rules::constant);
+        assert_rule!(input, rules::const_);
 
         Ok(())
     }
@@ -596,7 +939,7 @@ mod tests {
             * Const docu
             */
            const TypeName CONST_NAME = 123;"#;
-        assert_rule!(input, rules::constant);
+        assert_rule!(input, rules::const_);
 
         Ok(())
     }
@@ -604,7 +947,7 @@ mod tests {
     #[test]
     fn test_const_with_annotation() -> Result<()> {
         let input = "@AnnotationName const TypeName CONST_NAME = 123;";
-        assert_rule!(input, rules::constant);
+        assert_rule!(input, rules::const_);
 
         Ok(())
     }
@@ -612,8 +955,11 @@ mod tests {
     #[test]
     fn test_type_primitive1() -> Result<()> {
         let input = "double";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Primitive);
-        assert_rule!(input, rules::type_);
+        assert!(
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind
+                == types::TypeKind::Primitive
+        );
+        assert_rule!(input, rules::type_any);
 
         Ok(())
     }
@@ -621,8 +967,11 @@ mod tests {
     #[test]
     fn test_type_primitive2() -> Result<()> {
         let input = "doublegum";
-        assert!(rules::type_(input, &lookup(input))?.kind != types::TypeKind::Primitive);
-        assert_rule!(input, rules::type_);
+        assert!(
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind
+                != types::TypeKind::Primitive
+        );
+        assert_rule!(input, rules::type_any);
 
         Ok(())
     }
@@ -630,8 +979,11 @@ mod tests {
     #[test]
     fn test_type_custom() -> Result<()> {
         let input = "TypeName";
-        assert!(rules::type_(input, &lookup(input))?.kind == types::TypeKind::Custom);
-        assert_rule!(input, rules::type_);
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind,
+            types::TypeKind::Custom
+        );
+        assert_rule!(input, rules::type_any);
 
         Ok(())
     }
@@ -640,10 +992,10 @@ mod tests {
     fn test_type_custom_with_namespace() -> Result<()> {
         let input = "com.example.TypeName";
         assert_eq!(
-            rules::type_(input, &lookup(input))?.kind,
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind,
             types::TypeKind::Custom
         );
-        assert_rule!(input, rules::type_);
+        assert_rule!(input, rules::type_any);
 
         Ok(())
     }
@@ -652,14 +1004,27 @@ mod tests {
     fn test_type_array() -> Result<()> {
         let input = "float []";
         assert_eq!(
-            rules::type_(input, &lookup(input))?.kind,
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind,
             types::TypeKind::Array
         );
-        assert_rule!(input, rules::type_);
+        assert_rule!(input, rules::type_any);
 
         // No array of String...
         let input = "String []";
-        assert!(rules::type_(input, &lookup(input)).is_err());
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut diagnostics)?.kind,
+            types::TypeKind::Invalid
+        );
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid array: only primitives or enums are allowed. For objects, please use List<Object>",
+          ),
+        ]
+        "###);
 
         Ok(())
     }
@@ -668,14 +1033,27 @@ mod tests {
     fn test_type_list() -> Result<()> {
         let input = "List <MyObject >";
         assert_eq!(
-            rules::type_(input, &lookup(input))?.kind,
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind,
             types::TypeKind::List
         );
-        assert_rule!(input, rules::type_);
+        assert_rule!(input, rules::type_any);
 
         // No List for type_primitives
         let input = "List<int>";
-        assert!(rules::type_(input, &lookup(input)).is_err());
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut diagnostics)?.kind,
+            types::TypeKind::Invalid
+        );
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid list: the value must be an object (not a primitive)",
+          ),
+        ]
+        "###);
 
         Ok(())
     }
@@ -683,21 +1061,73 @@ mod tests {
     #[test]
     fn test_type_map() -> Result<()> {
         let input = "Map<Key,List<V>>";
-        assert_eq!(
-            rules::type_(input, &lookup(input))?.kind,
-            types::TypeKind::Map
-        );
-        assert_rule!(input, rules::type_);
+        assert_rule!(input, rules::type_any);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_primitive1() -> Result<()> {
         // No Map for type_primitives
         let input = "Map<int, String>";
-        assert!(rules::type_(input, &lookup(input)).is_err());
-        let input = "Map<String, int>";
-        assert!(rules::type_(input, &lookup(input)).is_err());
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut diagnostics)?.kind,
+            types::TypeKind::Invalid
+        );
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid map: both key and value must be an object (not a primitive)",
+          ),
+        ]
+        "###);
 
-        // OK for objects
-        let input = "Map<String, String>";
-        assert!(rules::type_(input, &lookup(input)).is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_primitive2() -> Result<()> {
+        // No Map for type_primitives
+        let input = "Map<String, int>";
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut diagnostics)?.kind,
+            types::TypeKind::Invalid
+        );
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid map: both key and value must be an object (not a primitive)",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_invalid() -> Result<()> {
+        let input = "tchou_tchou.";
+        assert_eq!(
+            rules::type_any(input, &lookup(input), &mut Vec::new())?.kind,
+            types::TypeKind::Invalid
+        );
+        let mut diagnostics = Vec::new();
+        assert_rule!(input, rules::type_any, &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid type",
+          ),
+        ]
+        "###);
 
         Ok(())
     }
@@ -706,22 +1136,22 @@ mod tests {
     fn test_value() -> Result<()> {
         // Numbers
         for input in ["12", "-12", "-0.12", "-.12", "-.12f"].into_iter() {
-            assert_eq!(rules::value(input, &lookup(input))?, input);
+            assert_eq!(rules::value(input, &lookup(input), &mut Vec::new())?, input);
         }
 
         // Invalid numbers
         for input in ["-.", "--12", "0..2", "0.2y"].into_iter() {
-            assert!(rules::value(input, &lookup(input)).is_err());
+            assert!(rules::value(input, &lookup(input), &mut Vec::new()).is_err());
         }
 
         // Strings
-        for input in ["\"hello\"", "\"\"", "\"\n\""].into_iter() {
-            assert_eq!(rules::value(input, &lookup(input))?, input);
+        for input in ["\"hello\"", "\"\"", "\"\t\""].into_iter() {
+            assert_eq!(rules::value(input, &lookup(input), &mut Vec::new())?, input);
         }
 
         // Invalid strings
         for input in ["\"\"\""].into_iter() {
-            assert!(rules::value(input, &lookup(input)).is_err());
+            assert!(rules::value(input, &lookup(input), &mut Vec::new()).is_err());
         }
 
         Ok(())
@@ -731,13 +1161,13 @@ mod tests {
     fn test_javadoc() -> Result<(), Box<dyn std::error::Error>> {
         let input = "/** This is a javadoc\n * comment*/";
         assert_eq!(
-            rules::javadoc(input, &lookup(input))?,
+            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
             "This is a javadoc comment"
         );
 
         let input = "/**\n * JavaDoc title\n *\n * JavaDoc text1\n * JavaDoc text2\n*/";
         assert_eq!(
-            rules::javadoc(input, &lookup(input))?,
+            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
             "JavaDoc title\nJavaDoc text1 JavaDoc text2"
         );
 
@@ -749,7 +1179,7 @@ mod tests {
                 * Description
                 */"#;
         assert_eq!(
-            rules::javadoc(input, &lookup(input))?,
+            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
             "JavaDoc title\n@param Param1 Description\n@param Param2 Description\nDescription"
         );
 
@@ -796,6 +1226,20 @@ mod tests {
 
         let input = "@AnnotationName(Hello=\"World\", Hi, Servus= 3 )";
         assert_rule!(input, rules::annotation);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_element_until() -> Result<()> {
+        let input = "_<,>_\",\"_[\n ]_";
+        assert_eq!(
+            rules::parse_element_until(input, &lookup(input), &mut Vec::new(), ",")?,
+            input,
+        );
+
+        let input = "_,_";
+        assert!(rules::parse_element_until(input, &lookup(input), &mut Vec::new(), ",").is_err());
 
         Ok(())
     }
