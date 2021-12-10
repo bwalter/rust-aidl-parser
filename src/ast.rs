@@ -148,15 +148,16 @@ peg::parser! {
             }
 
         // Accept anything which is a member and handle inner errors via diagnostics
-        rule parcelable_member_any() -> Option<types::Member> = s:$([^';']* ";") {
+        rule parcelable_member_any() -> Option<types::Member> =
+            p1:position!() s:$(parse_element_until(";") ";") p2:position!() _ {
 
-            member(s, lookup, diagnostics)
+                member(s, lookup, diagnostics)
                 .map(Some)
                 .unwrap_or_else(|e| {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         text: format!("Invalid member: expected {}", e.expected.to_string()),
-                        range: types::Range::new(lookup, e.location.line, e.location.column),
+                        range: types::Range::new(lookup, p1 + e.location.offset, p1 + e.location.offset),
                     });
                     None
                 })
@@ -244,7 +245,7 @@ peg::parser! {
             jd:javadoc()? _ annotations() _ fp1:position!() _ t:type_any() _
             sp1:position!() name:ident() sp2:position!() _
             ("=" _ v:value())? _
-            ";" _ fp2:position!() {
+            ";" fp2:position!() {
 
             types::Member {
                 name: name.to_owned(),
@@ -474,7 +475,7 @@ peg::parser! {
         pub(crate) rule square_brackets() = "[" _ "]"
 
         pub(crate) rule parse_element_until(without: &str) -> &'input str = $((
-            value_string() / line_comment() / block_comment() / generic() / square_brackets() /
+            value_string() / line_comment() / javadoc() / block_comment() / generic() / square_brackets() / whitespace_or_eol() /
                 (!(##parse_string_literal(without) / "}") [_])
         )+)
         rule semi_column() -> &'input str = $";"
@@ -1240,6 +1241,51 @@ mod tests {
 
         let input = "_,_";
         assert!(rules::parse_element_until(input, &lookup(input), &mut Vec::new(), ",").is_err());
+
+        let input = "/** Hello, world */ blabla";
+        assert_eq!(
+            rules::parse_element_until(input, &lookup(input), &mut Vec::new(), ",")?,
+            input,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dodo() -> Result<()> {
+        let input = r#"/*
+        * Structur to provide all information about specific road section characteristics.
+        */
+       parcelable RoadSectionOnRouteType {
+           /**
+            * The distanceToFinalDestination element specifies the 'static' distance value from the
+            * beginning of the road section (the first touching point) to the final destination for the
+            * given route. The distance from ccp to this element can be determined
+            * using the ccp-based data.
+            * The value is positiv and it is defined in meters.
+            */
+       
+           int distanceToFinalDestination;
+       
+           /**
+            * The roadSectrionType element represents the code or type of the road section.
+            */
+           RoadSectionOnRouteType roadSectionType;
+       
+           /**
+            * The roadSectrionSpecifier element represents additional data which are relevant with some
+            * roadOnRouteTypes only:
+            *  - ROAD_CLASS: the roadOnRouteSpecifier specifies the value of the roadClass
+            */
+           int roadSectionSpecifier;
+       
+           /**
+            * The lengthOnRoute element represents the length of the road section on the route in meter.
+            */
+           int lengthOnRoute;
+        }"#;
+
+        //assert_rule!(input, rules::parcelable);
 
         Ok(())
     }
