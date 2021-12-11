@@ -1,0 +1,647 @@
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+
+    fn lookup(input: &str) -> line_col::LineColLookup {
+        line_col::LineColLookup::new(input)
+    }
+
+    // Replace ranges into "..." and check parse output via insta Ron snapshot
+    macro_rules! assert_parser {
+        ($input:ident, $parser:expr) => {
+            let mut diagnostics = Vec::new();
+            let lookup = lookup($input);
+            let res = $parser.parse(&lookup, &mut diagnostics, $input)?;
+            //println!("BW - diagnostics: {:?}", diagnostics);
+            ::insta::assert_ron_snapshot!(res, {
+                ".**.symbol_range" => "...",
+                ".**.full_range" => "...",
+            });
+            assert_eq!(diagnostics, &[]);
+        };
+
+        ($input:ident, $parser:expr, $diag:expr) => {
+            let lookup = lookup($input);
+            let res = $parser.parse(&lookup, $diag, $input)?;
+            //println!("BW - diagnostics: {:?}", $diag);
+            ::insta::assert_ron_snapshot!(res, {
+                ".**.symbol_range" => "...",
+                ".**.full_range" => "...",
+            });
+        };
+    }
+
+    macro_rules! assert_diagnostics {
+        ($diag:expr, @$snapshot:literal) => {
+            ::insta::assert_ron_snapshot!($diag, {
+                ".**.range" => "...",
+            }, @$snapshot);
+        };
+    }
+
+    #[test]
+    fn test_file() -> Result<()> {
+        let input = r#"package x.y.z;
+            import a.b.c;
+            interface MyInterface {}
+        "#;
+        assert_parser!(input, crate::aidl::FileParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_with_errors() -> Result<()> {
+        let input = r#"package x.y.z;
+               import a.b.c;
+               oops_interface MyInterface {}
+           "#;
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::FileParser::new(), &mut diagnostics);
+
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid item: Unrecognized token `oops_interface` found at 59:73\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_package1() -> Result<()> {
+        let input = "package x ;";
+        assert_parser!(input, crate::aidl::PackageParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_package2() -> Result<()> {
+        let input = "package x.y.z;";
+        assert_parser!(input, crate::aidl::PackageParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_import() -> Result<()> {
+        let input = "import x.y.z;";
+        assert_parser!(input, crate::aidl::ImportParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_interface() -> Result<()> {
+        let input = r#"interface Potato {
+            /**
+             * const1 docu
+             */
+            const int const1 = 1;
+    
+            /**
+             * method1 docu
+             */
+            String method1();
+    
+            const String const2 = "two";
+            int method2();
+        }"#;
+        assert_parser!(input, crate::aidl::InterfaceParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_interface_with_annotation() -> Result<()> {
+        let input = r#"@InterfaceAnnotation1
+            @InterfaceAnnotation2 interface Potato {
+            }"#;
+        assert_parser!(input, crate::aidl::InterfaceParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_interface_with_errors() -> Result<()> {
+        let input = r#"interface Potato {
+            String method1();
+            int method2();
+            int oops_not_a_valid_method;
+            const String const2 = 123;
+            const oops_not_a_valid_const;
+        }"#;
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::InterfaceParser::new(), &mut diagnostics);
+
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid interface element: Unrecognized token `;` found at 115:116\nExpected one of \"(\"",
+          ),
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid interface element: Unrecognized token `;` found at 196:197\nExpected one of \")\", \",\", \".\", \">\", \"[\" or IDENT",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parcelable() -> Result<()> {
+        let input = r#"parcelable Tomato {
+            /**
+             * member1 docu
+             */
+            int member1;
+    
+            String member2; // inline comment
+        }"#;
+        assert_parser!(input, crate::aidl::ParcelableParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parcelable_with_errors() -> Result<()> {
+        let input = r#"parcelable Tomato {
+            int member1;
+            wrongmember3;
+            String member3;
+        }"#;
+        let mut diagnostics = Vec::new();
+        assert_parser!(
+            input,
+            crate::aidl::ParcelableParser::new(),
+            &mut diagnostics
+        );
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid member: Unrecognized token `;` found at 69:70\nExpected one of \",\", \".\", \">\", \"[\" or IDENT",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_enum() -> Result<()> {
+        let input = r#"enum Paprika {
+                /**
+                 * element1 docu
+                 */
+                ELEMENT1 = 3,
+    
+                ELEMENT2 = "quattro",
+                ELEMENT3
+            }"#;
+        assert_parser!(input, crate::aidl::EnumParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_enum_with_errors() -> Result<()> {
+        let input = r#"enum Paprika {
+                ELEMENT1 = 3,
+                ELEMENT2 == "quattro",
+                ELEMENT3,
+                0843
+            }"#;
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::EnumParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid enum element: Unrecognized token `=` found at 71:72\nExpected one of \"{\", BOOLEAN, NUMBER or QUOTED_STRING",
+          ),
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid enum element: Unrecognized token `0843` found at 126:130\nExpected one of \"}\", ANNOTATION or IDENT",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_enum_with_trailing_comma() -> Result<()> {
+        let input = r#"enum Paprika {
+                ELEMENT1,
+                ELEMENT2,
+            }"#;
+        assert_parser!(input, crate::aidl::EnumParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_without_arg() -> Result<()> {
+        let input = "TypeName myMethod() ;";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_1_arg() -> Result<()> {
+        let input = "TypeName myMethod(ArgType arg) ;";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_3_args() -> Result<()> {
+        let input = "TypeName myMethod(ArgType1, ArgType2 arg2, ArgType3) ;";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_oneway() -> Result<()> {
+        let input = "oneway TypeName myMethod();";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_value() -> Result<()> {
+        let input = "TypeName myMethod() = 123;";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_with_annotation() -> Result<()> {
+        let input = "@AnnotationName void myMethod();";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
+
+    //    #[test]
+    //    fn test_method_with_javadoc() -> Result<()> {
+    //        let input = r#"/**
+    //         * Method docu
+    //         */
+    //         void myMethod() = 123;"#;
+    //
+    //        assert_rule!(input, rules::method);
+    //        Ok(())
+    //    }
+
+    #[test]
+    fn test_method_arg_with_name() -> Result<()> {
+        let input = "TypeName albert";
+        assert_parser!(input, crate::aidl::ArgParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_arg_with_direction() -> Result<()> {
+        let input = "in TypeName";
+        assert_parser!(input, crate::aidl::ArgParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_arg_with_direction_and_name() -> Result<()> {
+        let input = "out TypeName roger";
+        assert_parser!(input, crate::aidl::ArgParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_arg_with_annotations() -> Result<()> {
+        let input = r#"@Annotation1
+            @Annotation2(AnnotationParam ) TypeName albert"#;
+        assert_parser!(input, crate::aidl::ArgParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_member() -> Result<()> {
+        let input = "TypeName memberName ;";
+        assert_parser!(input, crate::aidl::MemberParser::new());
+        Ok(())
+    }
+
+    #[test]
+    fn test_member_with_value() -> Result<()> {
+        let input = "TypeName memberName = \"member value\";";
+        assert_parser!(input, crate::aidl::MemberParser::new());
+
+        Ok(())
+    }
+
+    //    #[test]
+    //    fn test_member_with_javadoc() -> Result<(), Box<dyn std::error::Error>> {
+    //        let input = r#"/**
+    //             * Member docu
+    //             */
+    //            TypeName memberName;"#;
+    //        assert_rule!(input, rules::member);
+    //
+    //        Ok(())
+    //    }
+
+    #[test]
+    fn test_member_with_annotation() -> Result<()> {
+        let input = "@AnnotationName TypeName memberName = \"member value\";";
+        assert_parser!(input, crate::aidl::MemberParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_const_num() -> Result<()> {
+        let input = "const int CONST_NAME = 123 ;";
+        assert_parser!(input, crate::aidl::ConstParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_const_string() -> Result<()> {
+        let input = "const TypeName CONST_NAME = \"const value\";";
+        assert_parser!(input, crate::aidl::ConstParser::new());
+
+        Ok(())
+    }
+
+    //    #[test]
+    //    fn test_const_with_javadoc() -> Result<()> {
+    //        let input = r#"/**
+    //            * Const docu
+    //            */
+    //           const TypeName CONST_NAME = 123;"#;
+    //        assert_rule!(input, rules::const_);
+    //
+    //        Ok(())
+    //    }
+
+    #[test]
+    fn test_const_with_annotation() -> Result<()> {
+        let input = "@AnnotationName const TypeName CONST_NAME = 123;";
+        assert_parser!(input, crate::aidl::ConstParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_primitive1() -> Result<()> {
+        let input = "double";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_primitive2() -> Result<()> {
+        let input = "doublegum";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_custom() -> Result<()> {
+        let input = "TypeName";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_custom_with_namespace() -> Result<()> {
+        let input = "com.example.TypeName";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_array() -> Result<()> {
+        let input = "float []";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        // No array of String...
+        let input = "String []";
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::TypeParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid array parameter (String): must be a primitive or an enum",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_list() -> Result<()> {
+        let input = "List <MyObject >";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        // No List for type_primitives
+        let input = "List<int>";
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::TypeParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid list parameter (int): must be an object",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map() -> Result<()> {
+        let input = "Map<Key,List<V>>";
+        assert_parser!(input, crate::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_primitive1() -> Result<()> {
+        // No Map for type_primitives
+        let input = "Map<int, String>";
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::TypeParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid map parameters (int, String): key and value must be objects",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_primitive2() -> Result<()> {
+        // No Map for type_primitives
+        let input = "Map<String, int>";
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, crate::aidl::TypeParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            text: "Invalid map value (int): value must be an object",
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
+    #[test]
+    fn test_value() -> Result<()> {
+        // Numbers
+        for input in ["12", "-12", "-0.12", "-.12", "-.12f"].into_iter() {
+            assert_eq!(
+                crate::aidl::ValueParser::new().parse(&lookup(input), &mut Vec::new(), input)?,
+                input
+            );
+        }
+
+        // Invalid numbers
+        for input in ["-.", "--12", "0..2", "0.2y"].into_iter() {
+            assert!(crate::aidl::ValueParser::new()
+                .parse(&lookup(input), &mut Vec::new(), input)
+                .is_err());
+        }
+
+        // Strings
+        for input in ["\"hello\"", "\"\"", "\"\t\""].into_iter() {
+            assert_eq!(
+                crate::aidl::ValueParser::new().parse(&lookup(input), &mut Vec::new(), input)?,
+                input
+            );
+        }
+
+        // Invalid strings
+        for input in ["\"\"\""].into_iter() {
+            assert!(crate::aidl::ValueParser::new()
+                .parse(&lookup(input), &mut Vec::new(), input)
+                .is_err());
+        }
+
+        Ok(())
+    }
+
+    //    #[test]
+    //    fn test_javadoc() -> Result<(), Box<dyn std::error::Error>> {
+    //        let input = "/** This is a javadoc\n * comment*/";
+    //        assert_eq!(
+    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
+    //            "This is a javadoc comment"
+    //        );
+    //
+    //        let input = "/**\n * JavaDoc title\n *\n * JavaDoc text1\n * JavaDoc text2\n*/";
+    //        assert_eq!(
+    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
+    //            "JavaDoc title\nJavaDoc text1 JavaDoc text2"
+    //        );
+    //
+    //        let input = r#"/**
+    //                * JavaDoc title
+    //                * @param Param1 Description
+    //                * @param Param2 Description
+    //                *
+    //                * Description
+    //                */"#;
+    //        assert_eq!(
+    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
+    //            "JavaDoc title\n@param Param1 Description\n@param Param2 Description\nDescription"
+    //        );
+    //
+    //        Ok(())
+    //    }
+
+    #[test]
+    fn test_annotation1() -> Result<()> {
+        let input = "@AnnotationName";
+        assert_parser!(input, crate::aidl::AnnotationParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation2() -> Result<()> {
+        let input = "@AnnotationName()";
+        assert_parser!(input, crate::aidl::AnnotationParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation3() -> Result<()> {
+        let input = "@AnnotationName( Hello)";
+        assert_parser!(input, crate::aidl::AnnotationParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation4() -> Result<()> {
+        let input = "@AnnotationName(Hello=\"World\")";
+        assert_parser!(input, crate::aidl::AnnotationParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_annotation5() -> Result<()> {
+        let mut settings = insta::Settings::clone_current();
+        settings.set_sort_maps(true);
+        settings.bind_to_thread();
+
+        let input = "@AnnotationName(Hello=\"World\", Hi, Servus= 3 )";
+        assert_parser!(input, crate::aidl::AnnotationParser::new());
+
+        Ok(())
+    }
+}

@@ -1,0 +1,12 @@
+---
+source: src/parser.rs
+expression: res
+
+---
+Type(
+  name: "doublegum",
+  kind: Custom,
+  generic_types: [],
+  definition: None,
+  symbol_range: "...",
+)

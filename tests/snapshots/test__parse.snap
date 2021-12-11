@@ -1,6 +1,6 @@
 ---
 source: tests/test.rs
-expression: "files[0]"
+expression: file
 
 ---
 File(
@@ -9,11 +9,11 @@ File(
     symbol_range: "...",
   ),
   imports: [
-    Import(
+    Package(
       name: "com.bwa.aidl_test.MyEnum",
       symbol_range: "...",
     ),
-    Import(
+    Package(
       name: "com.bwa.aidl_test.MyParcelable",
       symbol_range: "...",
     ),
@@ -83,7 +83,7 @@ File(
       )),
     ],
     annotations: [],
-    doc: Some("Documentation of MyInterface"),
+    doc: None,
     full_range: "...",
     symbol_range: "...",
   )),

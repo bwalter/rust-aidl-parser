@@ -1,5 +1,5 @@
-use crate::types::{Position, Range};
-use serde::Serialize;
+use crate::types::Range;
+use serde_derive::Serialize;
 
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Diagnostic {
@@ -14,18 +14,29 @@ pub enum DiagnosticKind {
     Warning,
 }
 
-pub(crate) fn from_peg_error(
-    lookup: &line_col::LineColLookup,
-    peg_error: peg::error::ParseError<peg::str::LineCol>,
-) -> Diagnostic {
-    let pos = Position::new(lookup, peg_error.location.offset);
+pub type ErrorRecovery<'input> =
+    lalrpop_util::ErrorRecovery<usize, crate::aidl::Token<'input>, &'static str>;
 
-    Diagnostic {
-        kind: DiagnosticKind::Error,
-        text: format!("Expected: {}", peg_error.expected.to_string()),
-        range: Range {
-            start: pos.clone(),
-            end: pos,
-        },
+pub type ParseError<'input> =
+    lalrpop_util::ParseError<usize, crate::aidl::Token<'input>, &'static str>;
+
+impl Diagnostic {
+    pub(crate) fn from_error_recovery<'input>(
+        msg: &'static str,
+        lookup: &line_col::LineColLookup,
+        error_recovery: ErrorRecovery<'input>,
+    ) -> Result<Diagnostic, ParseError<'input>> {
+        if error_recovery.dropped_tokens.is_empty() {
+            return Err(error_recovery.error);
+        }
+
+        let p1 = error_recovery.dropped_tokens[0].0;
+        let p2 = error_recovery.dropped_tokens.last().unwrap().0;
+
+        Ok(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("{}: {}", &msg, error_recovery.error),
+            range: Range::new(lookup, p1, p2),
+        })
     }
 }

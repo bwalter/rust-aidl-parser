@@ -1,0 +1,436 @@
+grammar<'err>(
+    lookup: &line_col::LineColLookup<'input>,
+    diagnostics: &'err mut Vec<Diagnostic>
+);
+
+use crate::diagnostic::{Diagnostic, DiagnosticKind};
+use crate::types;
+
+pub File: Option<types::File> = {
+    <p:Package> <vi:Import*> <i:Item> => {
+        i.map(|item| types::File {
+            package: p,
+            imports: vi,
+            item,
+        })
+    }
+}
+
+// package x.y.z;
+pub Package: types::Package = {
+    PACKAGE <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
+        types::Package {
+            name,
+            symbol_range: types::Range::new(lookup, p1, p2),
+        }
+    }
+}
+
+// import x.y.z;
+pub Import: types::Package = {
+    IMPORT <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
+        types::Package {
+            name,
+            symbol_range: types::Range::new(lookup, p1, p2),
+        }
+    }
+}
+
+// x OR x.y.z
+pub QualifiedName: String = {
+    <v:(<IDENT> ".")*> <n:IDENT> => {
+        if v.is_empty() {
+            n.to_owned()
+        } else {
+            format!("{}.{}", v.join("."), n)
+        }
+    }
+}
+
+pub Item: Option<types::Item> = {
+    <i:Interface> => Some(types::Item::Interface(i)),
+    <p:Parcelable> => Some(types::Item::Parcelable(p)),
+    <e:Enum> => Some(types::Item::Enum(e)),
+    ! =>? {
+        diagnostics.push(Diagnostic::from_error_recovery("Invalid item", lookup, <>)?);
+        Ok(None)
+    },
+}
+
+pub Interface: types::Interface = {
+    <annotations:AnnotationList>
+    <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:InterfaceElement*> "}" <fp2:@R> => {
+        let elements: Vec<types::InterfaceElement> = v.into_iter().flatten().collect();
+
+        types::Interface {
+            name: s.into(),
+            elements,
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub InterfaceElement: Option<types::InterfaceElement> = {
+    <m:Method> => Some(types::InterfaceElement::Method(m)),
+    <c:Const> => Some(types::InterfaceElement::Const(c)),
+    ! =>? {
+        diagnostics.push(Diagnostic::from_error_recovery("Invalid interface element", lookup, <>)?);
+        Ok(None)
+    },
+}
+
+pub Parcelable: types::Parcelable = {
+    <annotations:AnnotationList>
+    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:ParcelableMember*> "}" <fp2:@R> => {
+        let members: Vec<types::Member> = v.into_iter().flatten().collect();
+
+        types::Parcelable {
+            name: s.into(),
+            members,
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub ParcelableMember: Option<types::Member> = {
+    <m:Member> => Some(m),
+    ! =>? {
+        diagnostics.push(Diagnostic::from_error_recovery("Invalid member", lookup, <>)?);
+        Ok(None)
+    },
+}
+
+pub Enum: types::Enum = {
+    <annotations:AnnotationList>
+    <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<EnumElementOpt>> "}" <fp2:@R> => {
+        let elements: Vec<types::EnumElement> = v.into_iter().flatten().collect();
+
+        types::Enum {
+            name: s.into(),
+            elements,
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub EnumElementOpt: Option<types::EnumElement> = {
+    <el:EnumElement> => Some(el),
+    ! =>? {
+        diagnostics.push(Diagnostic::from_error_recovery("Invalid enum element", lookup, <>)?);
+        Ok(None)
+    },
+}
+
+pub Method: types::Method = {
+    <annotations:AnnotationList>
+    <fp1:@L> <oneway:ONEWAY?> <rt:Type>
+    <sp1:@L> <n:IDENT> <sp2:@R>
+    "(" <args:CommaSeparated<Arg>> ")"
+    ("=" NUMBER)?  // TODO: only [0-9]+
+    ";" <fp2:@R> => {
+        types::Method {
+            oneway: oneway.is_some(),
+            name: n.to_owned(),
+            return_type: rt,
+            args,
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub Arg: types::Arg = {
+    <annotations:AnnotationList>
+    <d:Direction> <t:Type> <n:IDENT?> => {
+        types::Arg {
+            direction: d,
+            name: n.map(str::to_owned),
+            arg_type: t,
+            annotations,
+            doc: None,
+        }
+    }
+}
+
+pub Direction: types::Direction = {
+    <d:DIRECTION?> => {
+        match d {
+            Some("in") => types::Direction::In,
+            Some("out") => types::Direction::Out,
+            Some("inout") => types::Direction::InOut,
+            None => types::Direction::Unspecified,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub Const: types::Const = {
+    <annotations:AnnotationList>
+    <fp1:@L> CONST <t:Type>
+    <sp1:@L> <n:IDENT> <sp2:@R>
+    "=" <v:Value>
+    ";" <fp2:@R> => {
+        types::Const {
+            name: n.to_owned(),
+            const_type: t,
+            value: v.to_owned(),
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    },
+}
+
+pub Member: types::Member = {
+    <annotations:AnnotationList>
+    <fp1:@L> <t:Type>
+    <sp1:@L> <n:IDENT> <sp2:@R>
+    <v:("=" <Value>)?>
+    ";" <fp2:@R> => {
+        types::Member {
+            name: n.to_owned(),
+            member_type: t,
+            value: v.map(str::to_owned),
+            annotations,
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub EnumElement: types::EnumElement = {
+    <annotations:AnnotationList>
+    <fp1:@L>
+    <sp1:@L> <n:IDENT> <sp2:@R>
+    <v:("=" <Value>)?>
+    <fp2:@R> => {
+        types::EnumElement {
+            name: n.to_owned(),
+            value: v.map(str::to_owned),
+            doc: None,
+            full_range: types::Range::new(&lookup, fp1, fp2),
+            symbol_range: types::Range::new(&lookup, sp1, sp2),
+        }
+    }
+}
+
+pub Type: types::Type = {
+    TypeVoid,
+    TypePrimitive,
+    TypeString,
+    TypeArray,
+    TypeList,
+    TypeMap,
+    TypeCustom,
+}
+
+pub TypeVoid: types::Type = {
+    <p1:@L> <n:VOID> <p2:@R> =>
+        types::Type::simple_type(n, types::TypeKind::Void, lookup, p1, p2)
+}
+
+pub TypePrimitive: types::Type = {
+    <p1:@L> <n:PRIMITIVE> <p2:@R> =>
+        types::Type::simple_type(n, types::TypeKind::Primitive, lookup, p1, p2)
+}
+
+pub TypeString: types::Type = {
+    <p1:@L> <n:STRING> <p2:@R> =>
+        types::Type::simple_type(n, types::TypeKind::String, lookup, p1, p2)
+}
+
+pub TypeArray: types::Type = {
+    <p1:@L> <pp1:@L> <p:TypeArrayParameterValid> <pp2:@R> "[" "]" <p2:@L> => {
+        types::Type::array(p, &lookup, p1, p2)
+    },
+    <p1:@L> <pp1:@L> <p:TypeArrayParameterInvalid> "[" "]" <pp2:@R> <p2:@L> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("Invalid array parameter ({}): must be a primitive or an enum", p.name),
+            range: types::Range::new(&lookup, pp1, pp2),
+        });
+
+        types::Type::invalid_with_generics("Array", &[p], &lookup, p1, p2)
+    },
+}
+
+TypeArrayParameterValid = {
+    TypePrimitive,
+    TypeCustom,
+}
+
+TypeArrayParameterInvalid = {
+    TypeVoid,
+    TypeString,
+    TypeArray,
+    TypeList,
+    TypeMap,
+}
+
+pub TypeList: types::Type = {
+    <p1:@L> LIST "<" <p:TypeCollectionParameterValid> ">" <p2:@R> => {
+        types::Type::list(p, &lookup, p1, p2)
+    },
+    <p1:@L> LIST "<" <pp1:@L> <p:TypeCollectionParameterInvalid> <pp2:@R> ">" <p2:@R> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("Invalid list parameter ({}): must be an object", p.name),
+            range: types::Range::new(&lookup, pp1, pp2),
+        });
+        types::Type::invalid_with_generics("List", &[p], &lookup, p1, p2)
+    },
+}
+
+pub TypeMap: types::Type = {
+    <p1:@L> MAP "<"
+        <k:TypeCollectionParameterValid> "," <v:TypeCollectionParameterValid>
+    ">" <p2:@R> => {
+        types::Type::map(k, v, &lookup, p1, p2)
+    },
+    <p1:@L> MAP "<"
+        <kp1:@L> <k:TypeCollectionParameterInvalid> <kp2:@R> ","
+        <v:TypeCollectionParameterInvalid>
+    ">"  <p2:@R> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("Invalid map key ({}): key must be an object", k.name),
+            range: types::Range::new(&lookup, kp1, kp2),
+        });
+        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+    },
+    <p1:@L> MAP "<" <pp1:@L>
+        <k:TypeCollectionParameterInvalid> "," <v:TypeCollectionParameterValid>
+    <pp2:@R> ">" <p2:@R> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("Invalid map parameters ({}, {}): key and value must be objects", k.name, v.name),
+            range: types::Range::new(&lookup, pp1, pp2),
+        });
+        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+    },
+    <p1:@L> MAP "<"
+        <k:TypeCollectionParameterValid> ","
+        <vp1:@L> <v:TypeCollectionParameterInvalid> <vp2:@R>
+    ">" <p2:@R> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            text: format!("Invalid map value ({}): value must be an object", v.name),
+            range: types::Range::new(&lookup, vp1, vp2),
+        });
+        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+    },
+}
+
+TypeCollectionParameterValid = {
+    TypeString,
+    TypeList,
+    TypeMap,
+    TypeCustom,
+}
+
+TypeCollectionParameterInvalid = {
+    TypeVoid,
+    TypePrimitive,
+    TypeArray,
+}
+
+pub TypeCustom: types::Type = {
+    <p1:@L> <n:QualifiedName> <p2:@R> => {
+        types::Type {
+            name: n.to_owned(),
+            kind: types::TypeKind::Custom,
+            generic_types: vec![],
+            definition: None,
+            symbol_range: types::Range::new(&lookup, p1, p2),
+        }
+    }
+}
+
+pub AnnotationList: Vec<types::Annotation> = {
+    <v:Annotation*> => v.into_iter().flatten().collect()
+}
+
+pub Annotation: Option<types::Annotation> = {
+    <n:ANNOTATION> <v:("(" <CommaSeparated<AnnotationParam>> ")")?> => {
+        Some(types::Annotation {
+            name: n.to_owned(),
+            key_values: v.unwrap_or_default().into_iter().collect(),
+        })
+    },
+    //! =>? {
+    //    diagnostics.push(Diagnostic::from_error_recovery("Invalid annotation", lookup, <>)?);
+    //    Ok(None)
+    //},
+}
+
+AnnotationParam: (String, Option<String>) = {
+    <k:IDENT> <v:("=" <Value>)?> => (k.to_owned(), v.map(str::to_owned))
+}
+
+pub Value: &'input str = {
+    NUMBER,
+    QUOTED_STRING,
+    BOOLEAN,
+    "{" "}" => "{}",
+}
+
+CommaSeparated<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+}
+
+match {
+    // Whitespaces, comments, EOL
+    r"\s*" => { }, // The default whitespace skipping is disabled and an `ignore pattern` is specified
+    r"//[^\n\r]*[\n\r]*" => { }, // Skip `// comments`
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },  // Skip `/* comments */`
+    
+    "package" => PACKAGE,
+    "import" => IMPORT,
+    "interface" => INTERFACE,
+    "parcelable" => PARCELABLE,
+    "enum" => ENUM,
+    "oneway" => ONEWAY,
+    "const" => CONST,
+    
+    r"(in|out|inout)" => DIRECTION,
+    "void" => VOID,
+    r"(byte|short|int|long|float|double|boolean|char)" => PRIMITIVE,
+    r"(String|CharSequence)" => STRING,
+    "List" => LIST,
+    "Map" => MAP,
+    
+    r#""[^"\n\r]*""# => QUOTED_STRING,
+    r#"(true|false)"# => BOOLEAN,
+
+    r"@[a-zA-Z_][a-zA-Z0-9_]*" => ANNOTATION,
+    
+    // Signs
+    ";",  ",", "{", "}", "(", ")", "[", "]", "<", ">", "=", ".", "-",
+} else {
+    // Other
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENT,
+    r"[+-]?(\d*\.)?\d+[f]?" => NUMBER,
+} else {
+    r"[0-9]" => DIGIT,
+} else {
+    //r"[^;]*;" => ANY_INTERFACE_ELEMENT,  // TODO
+}

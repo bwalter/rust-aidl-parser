@@ -1,6 +1,10 @@
-mod ast;
 mod diagnostic;
+mod parser;
 pub mod types;
+
+use lalrpop_util::lalrpop_mod;
+
+lalrpop_mod!(pub aidl);
 
 pub type ParseResult = Vec<ParseFile>;
 
@@ -14,17 +18,19 @@ where
     T: AsRef<str>,
 {
     let file_results = inputs.iter().map(|i| {
-        println!("Parsing one file");
         let lookup = line_col::LineColLookup::new(i.as_ref());
         let mut diagnostics = Vec::new();
 
-        let rule_result = ast::rules::file(i.as_ref(), &lookup, &mut diagnostics);
+        let rule_result = aidl::FileParser::new().parse(&lookup, &mut diagnostics, i.as_ref());
 
         match rule_result {
-            Ok(file) => ParseFile { file, diagnostics },
-            Err(e) => ParseFile {
+            Ok(file) => ParseFile {
+                file: file,
+                diagnostics,
+            },
+            Err(_) => ParseFile {
                 file: None,
-                diagnostics: Vec::from([diagnostic::from_peg_error(&lookup, e)]),
+                diagnostics,
             },
         }
     });

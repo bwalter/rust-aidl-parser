@@ -1,0 +1,61 @@
+---
+source: src/parser.rs
+expression: res
+
+---
+Interface(
+  name: "Potato",
+  elements: [
+    Method(Method(
+      oneway: false,
+      name: "method1",
+      return_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      args: [],
+      annotations: [],
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    )),
+    Method(Method(
+      oneway: false,
+      name: "method2",
+      return_type: Type(
+        name: "int",
+        kind: Primitive,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      args: [],
+      annotations: [],
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    )),
+    Const(Const(
+      name: "const2",
+      const_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      value: "123",
+      annotations: [],
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    )),
+  ],
+  annotations: [],
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
+)

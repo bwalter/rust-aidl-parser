@@ -1,0 +1,11 @@
+---
+source: src/parser.rs
+expression: res
+
+---
+Some(Annotation(
+  name: "@AnnotationName",
+  key_values: {
+    "Hello": None,
+  },
+))

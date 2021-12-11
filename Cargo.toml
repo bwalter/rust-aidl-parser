@@ -1,13 +1,13 @@
 [package]
-name = "aidl-parser"
+name = "rust-aidl"
 version = "0.1.0"
 edition = "2021"
+build = "src/build.rs"
 
 [dependencies]
 anyhow = "1.0"
+lalrpop-util = { version = "0.19", features = ["lexer"] }
 line-col = { version = "0.2", features = ["grapheme-clusters"] }
-peg = "0.7"
-peg-macros = "0.7"
 regex = "1.5"
 serde = "1.0"
 serde_derive = "1.0"
@@ -15,6 +15,10 @@ serde_json = "1.0"
 thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+
+[build-dependencies]
+lalrpop = "0.19"
+lalrpop-util = { version = "0.19", features = ["lexer"] }
 
 [dev-dependencies]
 insta = { version = "1.8", features = ["redactions", "ron"] }

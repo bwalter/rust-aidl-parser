@@ -10,7 +10,7 @@ pub struct Project {
 #[derive(Serialize, Debug, PartialEq)]
 pub struct File {
     pub package: Package,
-    pub imports: Vec<Import>,
+    pub imports: Vec<Package>,
     pub item: Item,
 }
 
@@ -46,12 +46,6 @@ impl Range {
 
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Package {
-    pub name: String,
-    pub symbol_range: Range,
-}
-
-#[derive(Serialize, Debug, PartialEq)]
-pub struct Import {
     pub name: String,
     pub symbol_range: Range,
 }
@@ -150,8 +144,10 @@ impl Default for Direction {
 pub struct Member {
     pub name: String,
     pub member_type: Type,
+    pub value: Option<String>,
     pub symbol_range: Range,
     pub doc: Option<String>,
+    pub annotations: Vec<Annotation>,
     pub full_range: Range,
 }
 
@@ -166,10 +162,11 @@ pub struct EnumElement {
 
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Annotation {
+    pub name: String,
     pub key_values: HashMap<String, Option<String>>,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq, Clone)]
 pub enum TypeKind {
     Primitive,
     Void,
@@ -181,7 +178,7 @@ pub enum TypeKind {
     Invalid,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq, Clone)]
 pub struct Type {
     pub name: String,
     pub kind: TypeKind,
@@ -202,6 +199,58 @@ impl Type {
             name: name.into(),
             kind,
             generic_types: Vec::new(),
+            definition: None,
+            symbol_range: Range::new(lookup, start, end),
+        }
+    }
+
+    pub fn array(param: Type, lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+        Type {
+            name: "Array".to_owned(),
+            kind: TypeKind::Array,
+            generic_types: Vec::from([param]),
+            definition: None,
+            symbol_range: Range::new(lookup, start, end),
+        }
+    }
+
+    pub fn list(param: Type, lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+        Type {
+            name: "List".to_owned(),
+            kind: TypeKind::List,
+            generic_types: Vec::from([param]),
+            definition: None,
+            symbol_range: Range::new(lookup, start, end),
+        }
+    }
+
+    pub fn map(
+        key_param: Type,
+        value_param: Type,
+        lookup: &line_col::LineColLookup,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Type {
+            name: "Map".to_owned(),
+            kind: TypeKind::List,
+            generic_types: Vec::from([key_param, value_param]),
+            definition: None,
+            symbol_range: Range::new(lookup, start, end),
+        }
+    }
+
+    pub fn invalid_with_generics<S: Into<String>>(
+        name: S,
+        params: &[Type],
+        lookup: &line_col::LineColLookup,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Type {
+            name: name.into(),
+            kind: TypeKind::Invalid,
+            generic_types: params.to_vec(),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
         }

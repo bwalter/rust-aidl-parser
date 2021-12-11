@@ -1,0 +1,25 @@
+---
+source: src/parser.rs
+expression: res
+
+---
+Some(File(
+  package: Package(
+    name: "x.y.z",
+    symbol_range: "...",
+  ),
+  imports: [
+    Package(
+      name: "a.b.c",
+      symbol_range: "...",
+    ),
+  ],
+  item: Interface(Interface(
+    name: "MyInterface",
+    elements: [],
+    annotations: [],
+    doc: None,
+    full_range: "...",
+    symbol_range: "...",
+  )),
+))
