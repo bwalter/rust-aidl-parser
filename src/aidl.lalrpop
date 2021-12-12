@@ -3,13 +3,13 @@ grammar<'err>(
     diagnostics: &'err mut Vec<Diagnostic>
 );
 
+use crate::ast;
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
-use crate::types;
 use crate::javadoc;
 
-pub File: Option<types::File> = {
+pub File: Option<ast::File> = {
     <p:Package> <vi:Import*> <i:Item> => {
-        i.map(|item| types::File {
+        i.map(|item| ast::File {
             package: p,
             imports: vi,
             item,
@@ -18,21 +18,21 @@ pub File: Option<types::File> = {
 }
 
 // package x.y.z;
-pub Package: types::Package = {
+pub Package: ast::Package = {
     PACKAGE <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
-        types::Package {
+        ast::Package {
             name,
-            symbol_range: types::Range::new(lookup, p1, p2),
+            symbol_range: ast::Range::new(lookup, p1, p2),
         }
     }
 }
 
 // import x.y.z;
-pub Import: types::Package = {
+pub Import: ast::Package = {
     IMPORT <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
-        types::Package {
+        ast::Package {
             name,
-            symbol_range: types::Range::new(lookup, p1, p2),
+            symbol_range: ast::Range::new(lookup, p1, p2),
         }
     }
 }
@@ -48,60 +48,60 @@ pub QualifiedName: String = {
     }
 }
 
-pub Item: Option<types::Item> = {
-    <i:Interface> => Some(types::Item::Interface(i)),
-    <p:Parcelable> => Some(types::Item::Parcelable(p)),
-    <e:Enum> => Some(types::Item::Enum(e)),
+pub Item: Option<ast::Item> = {
+    <i:Interface> => Some(ast::Item::Interface(i)),
+    <p:Parcelable> => Some(ast::Item::Parcelable(p)),
+    <e:Enum> => Some(ast::Item::Enum(e)),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid item", lookup, <>)?);
         Ok(None)
     },
 }
 
-pub Interface: types::Interface = {
+pub Interface: ast::Interface = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:InterfaceElement*> "}" <fp2:@R> => {
-        let elements: Vec<types::InterfaceElement> = v.into_iter().flatten().collect();
+        let elements: Vec<ast::InterfaceElement> = v.into_iter().flatten().collect();
 
-        types::Interface {
+        ast::Interface {
             name: s.into(),
             elements,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub InterfaceElement: Option<types::InterfaceElement> = {
-    <m:Method> => Some(types::InterfaceElement::Method(m)),
-    <c:Const> => Some(types::InterfaceElement::Const(c)),
+pub InterfaceElement: Option<ast::InterfaceElement> = {
+    <m:Method> => Some(ast::InterfaceElement::Method(m)),
+    <c:Const> => Some(ast::InterfaceElement::Const(c)),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid interface element", lookup, <>)?);
         Ok(None)
     },
 }
 
-pub Parcelable: types::Parcelable = {
+pub Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:ParcelableMember*> "}" <fp2:@R> => {
-        let members: Vec<types::Member> = v.into_iter().flatten().collect();
+        let members: Vec<ast::Member> = v.into_iter().flatten().collect();
 
-        types::Parcelable {
+        ast::Parcelable {
             name: s.into(),
             members,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub ParcelableMember: Option<types::Member> = {
+pub ParcelableMember: Option<ast::Member> = {
     <m:Member> => Some(m),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid member", lookup, <>)?);
@@ -109,24 +109,24 @@ pub ParcelableMember: Option<types::Member> = {
     },
 }
 
-pub Enum: types::Enum = {
+pub Enum: ast::Enum = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<EnumElementOpt>> "}" <fp2:@R> => {
-        let elements: Vec<types::EnumElement> = v.into_iter().flatten().collect();
+        let elements: Vec<ast::EnumElement> = v.into_iter().flatten().collect();
 
-        types::Enum {
+        ast::Enum {
             name: s.into(),
             elements,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub EnumElementOpt: Option<types::EnumElement> = {
+pub EnumElementOpt: Option<ast::EnumElement> = {
     <el:EnumElement> => Some(el),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid enum element", lookup, <>)?);
@@ -134,7 +134,7 @@ pub EnumElementOpt: Option<types::EnumElement> = {
     },
 }
 
-pub Method: types::Method = {
+pub Method: ast::Method = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <oneway:ONEWAY?> <rt:Type>
@@ -142,24 +142,24 @@ pub Method: types::Method = {
     "(" <args:CommaSeparated<Arg>> ")"
     ("=" NUMBER)?  // TODO: only [0-9]+
     ";" <fp2:@R> => {
-        types::Method {
+        ast::Method {
             oneway: oneway.is_some(),
             name: n.to_owned(),
             return_type: rt,
             args,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub Arg: types::Arg = {
+pub Arg: ast::Arg = {
     <p0:@L>
     <annotations:AnnotationList>
     <d:Direction> <t:Type> <n:IDENT?> => {
-        types::Arg {
+        ast::Arg {
             direction: d,
             name: n.map(str::to_owned),
             arg_type: t,
@@ -169,74 +169,74 @@ pub Arg: types::Arg = {
     }
 }
 
-pub Direction: types::Direction = {
+pub Direction: ast::Direction = {
     <d:DIRECTION?> => {
         match d {
-            Some("in") => types::Direction::In,
-            Some("out") => types::Direction::Out,
-            Some("inout") => types::Direction::InOut,
-            None => types::Direction::Unspecified,
+            Some("in") => ast::Direction::In,
+            Some("out") => ast::Direction::Out,
+            Some("inout") => ast::Direction::InOut,
+            None => ast::Direction::Unspecified,
             _ => unreachable!(),
         }
     }
 }
 
-pub Const: types::Const = {
+pub Const: ast::Const = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> CONST <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     "=" <v:Value>
     ";" <fp2:@R> => {
-        types::Const {
+        ast::Const {
             name: n.to_owned(),
             const_type: t,
             value: v.to_owned(),
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     },
 }
 
-pub Member: types::Member = {
+pub Member: ast::Member = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     <v:("=" <Value>)?>
     ";" <fp2:@R> => {
-        types::Member {
+        ast::Member {
             name: n.to_owned(),
             member_type: t,
             value: v.map(str::to_owned),
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub EnumElement: types::EnumElement = {
+pub EnumElement: ast::EnumElement = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L>
     <sp1:@L> <n:IDENT> <sp2:@R>
     <v:("=" <Value>)?>
     <fp2:@R> => {
-        types::EnumElement {
+        ast::EnumElement {
             name: n.to_owned(),
             value: v.map(str::to_owned),
             doc: javadoc::get_javadoc(input, p0),
-            full_range: types::Range::new(&lookup, fp1, fp2),
-            symbol_range: types::Range::new(&lookup, sp1, sp2),
+            full_range: ast::Range::new(&lookup, fp1, fp2),
+            symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
     }
 }
 
-pub Type: types::Type = {
+pub Type: ast::Type = {
     TypeVoid,
     TypePrimitive,
     TypeString,
@@ -246,33 +246,33 @@ pub Type: types::Type = {
     TypeCustom,
 }
 
-pub TypeVoid: types::Type = {
+pub TypeVoid: ast::Type = {
     <p1:@L> <n:VOID> <p2:@R> =>
-        types::Type::simple_type(n, types::TypeKind::Void, lookup, p1, p2)
+        ast::Type::simple_type(n, ast::TypeKind::Void, lookup, p1, p2)
 }
 
-pub TypePrimitive: types::Type = {
+pub TypePrimitive: ast::Type = {
     <p1:@L> <n:PRIMITIVE> <p2:@R> =>
-        types::Type::simple_type(n, types::TypeKind::Primitive, lookup, p1, p2)
+        ast::Type::simple_type(n, ast::TypeKind::Primitive, lookup, p1, p2)
 }
 
-pub TypeString: types::Type = {
+pub TypeString: ast::Type = {
     <p1:@L> <n:STRING> <p2:@R> =>
-        types::Type::simple_type(n, types::TypeKind::String, lookup, p1, p2)
+        ast::Type::simple_type(n, ast::TypeKind::String, lookup, p1, p2)
 }
 
-pub TypeArray: types::Type = {
+pub TypeArray: ast::Type = {
     <p1:@L> <pp1:@L> <p:TypeArrayParameterValid> <pp2:@R> "[" "]" <p2:@L> => {
-        types::Type::array(p, &lookup, p1, p2)
+        ast::Type::array(p, &lookup, p1, p2)
     },
     <p1:@L> <pp1:@L> <p:TypeArrayParameterInvalid> "[" "]" <pp2:@R> <p2:@L> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
             text: format!("Invalid array parameter ({}): must be a primitive or an enum", p.name),
-            range: types::Range::new(&lookup, pp1, pp2),
+            range: ast::Range::new(&lookup, pp1, pp2),
         });
 
-        types::Type::invalid_with_generics("Array", &[p], &lookup, p1, p2)
+        ast::Type::invalid_with_generics("Array", &[p], &lookup, p1, p2)
     },
 }
 
@@ -289,25 +289,25 @@ TypeArrayParameterInvalid = {
     TypeMap,
 }
 
-pub TypeList: types::Type = {
+pub TypeList: ast::Type = {
     <p1:@L> LIST "<" <p:TypeCollectionParameterValid> ">" <p2:@R> => {
-        types::Type::list(p, &lookup, p1, p2)
+        ast::Type::list(p, &lookup, p1, p2)
     },
     <p1:@L> LIST "<" <pp1:@L> <p:TypeCollectionParameterInvalid> <pp2:@R> ">" <p2:@R> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
             text: format!("Invalid list parameter ({}): must be an object", p.name),
-            range: types::Range::new(&lookup, pp1, pp2),
+            range: ast::Range::new(&lookup, pp1, pp2),
         });
-        types::Type::invalid_with_generics("List", &[p], &lookup, p1, p2)
+        ast::Type::invalid_with_generics("List", &[p], &lookup, p1, p2)
     },
 }
 
-pub TypeMap: types::Type = {
+pub TypeMap: ast::Type = {
     <p1:@L> MAP "<"
         <k:TypeCollectionParameterValid> "," <v:TypeCollectionParameterValid>
     ">" <p2:@R> => {
-        types::Type::map(k, v, &lookup, p1, p2)
+        ast::Type::map(k, v, &lookup, p1, p2)
     },
     <p1:@L> MAP "<"
         <kp1:@L> <k:TypeCollectionParameterInvalid> <kp2:@R> ","
@@ -316,9 +316,9 @@ pub TypeMap: types::Type = {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
             text: format!("Invalid map key ({}): key must be an object", k.name),
-            range: types::Range::new(&lookup, kp1, kp2),
+            range: ast::Range::new(&lookup, kp1, kp2),
         });
-        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
     <p1:@L> MAP "<" <pp1:@L>
         <k:TypeCollectionParameterInvalid> "," <v:TypeCollectionParameterValid>
@@ -326,9 +326,9 @@ pub TypeMap: types::Type = {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
             text: format!("Invalid map parameters ({}, {}): key and value must be objects", k.name, v.name),
-            range: types::Range::new(&lookup, pp1, pp2),
+            range: ast::Range::new(&lookup, pp1, pp2),
         });
-        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
     <p1:@L> MAP "<"
         <k:TypeCollectionParameterValid> ","
@@ -337,9 +337,9 @@ pub TypeMap: types::Type = {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
             text: format!("Invalid map value ({}): value must be an object", v.name),
-            range: types::Range::new(&lookup, vp1, vp2),
+            range: ast::Range::new(&lookup, vp1, vp2),
         });
-        types::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
+        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
 }
 
@@ -356,25 +356,25 @@ TypeCollectionParameterInvalid = {
     TypeArray,
 }
 
-pub TypeCustom: types::Type = {
+pub TypeCustom: ast::Type = {
     <p1:@L> <n:QualifiedName> <p2:@R> => {
-        types::Type {
+        ast::Type {
             name: n.to_owned(),
-            kind: types::TypeKind::Custom,
+            kind: ast::TypeKind::Custom,
             generic_types: vec![],
             definition: None,
-            symbol_range: types::Range::new(&lookup, p1, p2),
+            symbol_range: ast::Range::new(&lookup, p1, p2),
         }
     }
 }
 
-pub AnnotationList: Vec<types::Annotation> = {
+pub AnnotationList: Vec<ast::Annotation> = {
     <v:Annotation*> => v.into_iter().flatten().collect()
 }
 
-pub Annotation: Option<types::Annotation> = {
+pub Annotation: Option<ast::Annotation> = {
     <n:ANNOTATION> <v:("(" <CommaSeparated<AnnotationParam>> ")")?> => {
-        Some(types::Annotation {
+        Some(ast::Annotation {
             name: n.to_owned(),
             key_values: v.unwrap_or_default().into_iter().collect(),
         })

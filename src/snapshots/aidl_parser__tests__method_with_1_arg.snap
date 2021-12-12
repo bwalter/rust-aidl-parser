@@ -1,0 +1,35 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Method(
+  oneway: false,
+  name: "myMethod",
+  return_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  args: [
+    Arg(
+      direction: Unspecified,
+      name: Some("arg"),
+      arg_type: Type(
+        name: "ArgType",
+        kind: Custom,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      doc: None,
+      annotations: [],
+    ),
+  ],
+  annotations: [],
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
+)

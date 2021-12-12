@@ -1,4 +1,4 @@
-use crate::types::Range;
+use crate::ast::Range;
 use serde_derive::Serialize;
 
 #[derive(Serialize, Debug, PartialEq)]

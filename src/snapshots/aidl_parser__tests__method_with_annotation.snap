@@ -1,0 +1,26 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Method(
+  oneway: false,
+  name: "myMethod",
+  return_type: Type(
+    name: "void",
+    kind: Void,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  args: [],
+  annotations: [
+    Annotation(
+      name: "@AnnotationName",
+      key_values: {},
+    ),
+  ],
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
+)

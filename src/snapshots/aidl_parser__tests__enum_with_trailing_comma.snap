@@ -1,0 +1,28 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Enum(
+  name: "Paprika",
+  elements: [
+    EnumElement(
+      name: "ELEMENT1",
+      value: None,
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    ),
+    EnumElement(
+      name: "ELEMENT2",
+      value: None,
+      doc: None,
+      symbol_range: "...",
+      full_range: "...",
+    ),
+  ],
+  annotations: [],
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
+)

@@ -36,7 +36,7 @@ fn test_parse() -> Result<()> {
     "#;
 
     let inputs = [interface_aidl, enum_aidl, parcelable_aidl];
-    let file_results = rust_aidl::parse(&inputs);
+    let file_results = aidl_parser::parse(&inputs);
     let file = file_results
         .into_iter()
         .next()
@@ -57,7 +57,7 @@ fn test_parse_error() -> Result<()> {
     let aidl = "package x.y.z; completly wrong item {}";
 
     let inputs = [aidl];
-    let file_results = rust_aidl::parse(&inputs);
+    let file_results = aidl_parser::parse(&inputs);
 
     assert_eq!(file_results.len(), 1);
     assert!(file_results[0].file.is_none());

@@ -1,4 +1,4 @@
-# rust-aidl
+# aidl-parser
 
 AIDL parser for Rust.
 
@@ -22,7 +22,7 @@ TODO:
 ```rust
 #[test]
 fn test_parse() -> Result<()> {
-    use aidl_parser::types::*;
+    use aidl_parser::ast::*;
 
     let interface_aidl = r#"
         package com.bwa.aidl_test;

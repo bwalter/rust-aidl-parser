@@ -1,0 +1,44 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Parcelable(
+  name: "Tomato",
+  members: [
+    Member(
+      name: "member1",
+      member_type: Type(
+        name: "int",
+        kind: Primitive,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      value: None,
+      symbol_range: "...",
+      doc: Some("member1 documentation"),
+      annotations: [],
+      full_range: "...",
+    ),
+    Member(
+      name: "member2",
+      member_type: Type(
+        name: "String",
+        kind: String,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      value: None,
+      symbol_range: "...",
+      doc: None,
+      annotations: [],
+      full_range: "...",
+    ),
+  ],
+  annotations: [],
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
+)

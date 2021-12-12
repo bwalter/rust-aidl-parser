@@ -12,6 +12,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "aidl-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "insta",
+ "lalrpop",
+ "lalrpop-util",
+ "line-col",
+ "regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -574,24 +592,6 @@ dependencies = [
  "base64",
  "bitflags",
  "serde",
-]
-
-[[package]]
-name = "rust-aidl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "insta",
- "lalrpop",
- "lalrpop-util",
- "line-col",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "thiserror",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

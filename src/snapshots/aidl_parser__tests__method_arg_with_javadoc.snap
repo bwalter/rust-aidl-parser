@@ -1,0 +1,18 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Arg(
+  direction: Unspecified,
+  name: Some("albert"),
+  arg_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  doc: Some("Arg documentation"),
+  annotations: [],
+)

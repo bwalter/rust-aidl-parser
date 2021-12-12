@@ -1,0 +1,35 @@
+---
+source: src/lib.rs
+expression: res
+
+---
+Type(
+  name: "Map",
+  kind: List,
+  generic_types: [
+    Type(
+      name: "Key",
+      kind: Custom,
+      generic_types: [],
+      definition: None,
+      symbol_range: "...",
+    ),
+    Type(
+      name: "List",
+      kind: List,
+      generic_types: [
+        Type(
+          name: "V",
+          kind: Custom,
+          generic_types: [],
+          definition: None,
+          symbol_range: "...",
+        ),
+      ],
+      definition: None,
+      symbol_range: "...",
+    ),
+  ],
+  definition: None,
+  symbol_range: "...",
+)
