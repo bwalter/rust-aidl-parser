@@ -1,4 +1,5 @@
 mod diagnostic;
+mod javadoc;
 mod parser;
 pub mod types;
 
@@ -24,10 +25,7 @@ where
         let rule_result = aidl::FileParser::new().parse(&lookup, &mut diagnostics, i.as_ref());
 
         match rule_result {
-            Ok(file) => ParseFile {
-                file,
-                diagnostics,
-            },
+            Ok(file) => ParseFile { file, diagnostics },
             Err(_) => ParseFile {
                 file: None,
                 diagnostics,

@@ -15,7 +15,6 @@ The following items are supported:
 It provides a basic validation but does not (yet) check for the full specifications.
 
 TODO:
-- JavaDoc
 - Resolve types
 
 ## Example

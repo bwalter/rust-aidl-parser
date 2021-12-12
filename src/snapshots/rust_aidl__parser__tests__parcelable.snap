@@ -17,7 +17,7 @@ Parcelable(
       ),
       value: None,
       symbol_range: "...",
-      doc: None,
+      doc: Some("member1 documentation"),
       annotations: [],
       full_range: "...",
     ),

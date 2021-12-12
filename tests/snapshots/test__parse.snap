@@ -83,7 +83,7 @@ File(
       )),
     ],
     annotations: [],
-    doc: None,
+    doc: Some("Documentation of MyInterface"),
     full_range: "...",
     symbol_range: "...",
   )),

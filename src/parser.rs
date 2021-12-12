@@ -100,12 +100,12 @@ mod tests {
     fn test_interface() -> Result<()> {
         let input = r#"interface Potato {
             /**
-             * const1 docu
+             * const1 documentation
              */
             const int const1 = 1;
     
             /**
-             * method1 docu
+             * method1 documentation
              */
             String method1();
     
@@ -121,6 +121,20 @@ mod tests {
     fn test_interface_with_annotation() -> Result<()> {
         let input = r#"@InterfaceAnnotation1
             @InterfaceAnnotation2 interface Potato {
+            }"#;
+        assert_parser!(input, crate::aidl::InterfaceParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_interface_with_javadoc() -> Result<()> {
+        let input = r#"
+            /** Documentation before */
+            /** Interface documentation */
+            /* Comment after */
+            // Line comment after
+            interface Potato {
             }"#;
         assert_parser!(input, crate::aidl::InterfaceParser::new());
 
@@ -161,12 +175,22 @@ mod tests {
     fn test_parcelable() -> Result<()> {
         let input = r#"parcelable Tomato {
             /**
-             * member1 docu
+             * member1 documentation
              */
             int member1;
     
             String member2; // inline comment
         }"#;
+        assert_parser!(input, crate::aidl::ParcelableParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parcelable_with_javadoc() -> Result<()> {
+        let input = r#"
+            /** Parcelable documentation */
+            parcelable Tomato {}"#;
         assert_parser!(input, crate::aidl::ParcelableParser::new());
 
         Ok(())
@@ -202,12 +226,28 @@ mod tests {
     fn test_enum() -> Result<()> {
         let input = r#"enum Paprika {
                 /**
-                 * element1 docu
+                 * element1 documentation
                  */
                 ELEMENT1 = 3,
     
                 ELEMENT2 = "quattro",
                 ELEMENT3
+            }"#;
+        assert_parser!(input, crate::aidl::EnumParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_enum_with_javadoc() -> Result<()> {
+        let input = r#"
+            /** Enum documentation */
+            enum Tomato {
+                /** ELEMENT1 documentation */
+                ELEMENT1,
+                ELEMENT2,
+                /** ELEMENT3 documentation */
+                ELEMENT3,
             }"#;
         assert_parser!(input, crate::aidl::EnumParser::new());
 
@@ -301,16 +341,13 @@ mod tests {
         Ok(())
     }
 
-    //    #[test]
-    //    fn test_method_with_javadoc() -> Result<()> {
-    //        let input = r#"/**
-    //         * Method docu
-    //         */
-    //         void myMethod() = 123;"#;
-    //
-    //        assert_rule!(input, rules::method);
-    //        Ok(())
-    //    }
+    #[test]
+    fn test_method_with_javadoc() -> Result<()> {
+        let input = "/** Method documentation */ void myMethod() = 123;";
+        assert_parser!(input, crate::aidl::MethodParser::new());
+
+        Ok(())
+    }
 
     #[test]
     fn test_method_arg_with_name() -> Result<()> {
@@ -346,6 +383,14 @@ mod tests {
     }
 
     #[test]
+    fn test_method_arg_with_javadoc() -> Result<()> {
+        let input = "/** Arg documentation */ TypeName albert";
+        assert_parser!(input, crate::aidl::ArgParser::new());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_member() -> Result<()> {
         let input = "TypeName memberName ;";
         assert_parser!(input, crate::aidl::MemberParser::new());
@@ -360,16 +405,16 @@ mod tests {
         Ok(())
     }
 
-    //    #[test]
-    //    fn test_member_with_javadoc() -> Result<(), Box<dyn std::error::Error>> {
-    //        let input = r#"/**
-    //             * Member docu
-    //             */
-    //            TypeName memberName;"#;
-    //        assert_rule!(input, rules::member);
-    //
-    //        Ok(())
-    //    }
+    #[test]
+    fn test_member_with_javadoc() -> Result<(), Box<dyn std::error::Error>> {
+        let input = r#"/**
+             * Member documentation
+             */
+            TypeName memberName;"#;
+        assert_parser!(input, crate::aidl::MemberParser::new());
+
+        Ok(())
+    }
 
     #[test]
     fn test_member_with_annotation() -> Result<()> {
@@ -395,16 +440,16 @@ mod tests {
         Ok(())
     }
 
-    //    #[test]
-    //    fn test_const_with_javadoc() -> Result<()> {
-    //        let input = r#"/**
-    //            * Const docu
-    //            */
-    //           const TypeName CONST_NAME = 123;"#;
-    //        assert_rule!(input, rules::const_);
-    //
-    //        Ok(())
-    //    }
+    #[test]
+    fn test_const_with_javadoc() -> Result<()> {
+        let input = r#"/**
+            * Const documentation
+            */
+           const TypeName CONST_NAME = 123;"#;
+        assert_parser!(input, crate::aidl::ConstParser::new());
+
+        Ok(())
+    }
 
     #[test]
     fn test_const_with_annotation() -> Result<()> {
@@ -571,35 +616,6 @@ mod tests {
 
         Ok(())
     }
-
-    //    #[test]
-    //    fn test_javadoc() -> Result<(), Box<dyn std::error::Error>> {
-    //        let input = "/** This is a javadoc\n * comment*/";
-    //        assert_eq!(
-    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
-    //            "This is a javadoc comment"
-    //        );
-    //
-    //        let input = "/**\n * JavaDoc title\n *\n * JavaDoc text1\n * JavaDoc text2\n*/";
-    //        assert_eq!(
-    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
-    //            "JavaDoc title\nJavaDoc text1 JavaDoc text2"
-    //        );
-    //
-    //        let input = r#"/**
-    //                * JavaDoc title
-    //                * @param Param1 Description
-    //                * @param Param2 Description
-    //                *
-    //                * Description
-    //                */"#;
-    //        assert_eq!(
-    //            rules::javadoc(input, &lookup(input), &mut Vec::new())?,
-    //            "JavaDoc title\n@param Param1 Description\n@param Param2 Description\nDescription"
-    //        );
-    //
-    //        Ok(())
-    //    }
 
     #[test]
     fn test_annotation1() -> Result<()> {

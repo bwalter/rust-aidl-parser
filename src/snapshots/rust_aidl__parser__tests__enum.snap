@@ -9,7 +9,7 @@ Enum(
     EnumElement(
       name: "ELEMENT1",
       value: Some("3"),
-      doc: None,
+      doc: Some("element1 documentation"),
       symbol_range: "...",
       full_range: "...",
     ),

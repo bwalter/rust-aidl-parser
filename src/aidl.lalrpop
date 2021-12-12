@@ -5,6 +5,7 @@ grammar<'err>(
 
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
 use crate::types;
+use crate::javadoc;
 
 pub File: Option<types::File> = {
     <p:Package> <vi:Import*> <i:Item> => {
@@ -58,6 +59,7 @@ pub Item: Option<types::Item> = {
 }
 
 pub Interface: types::Interface = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:InterfaceElement*> "}" <fp2:@R> => {
         let elements: Vec<types::InterfaceElement> = v.into_iter().flatten().collect();
@@ -66,7 +68,7 @@ pub Interface: types::Interface = {
             name: s.into(),
             elements,
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -83,6 +85,7 @@ pub InterfaceElement: Option<types::InterfaceElement> = {
 }
 
 pub Parcelable: types::Parcelable = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:ParcelableMember*> "}" <fp2:@R> => {
         let members: Vec<types::Member> = v.into_iter().flatten().collect();
@@ -91,7 +94,7 @@ pub Parcelable: types::Parcelable = {
             name: s.into(),
             members,
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -107,6 +110,7 @@ pub ParcelableMember: Option<types::Member> = {
 }
 
 pub Enum: types::Enum = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<EnumElementOpt>> "}" <fp2:@R> => {
         let elements: Vec<types::EnumElement> = v.into_iter().flatten().collect();
@@ -115,7 +119,7 @@ pub Enum: types::Enum = {
             name: s.into(),
             elements,
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -131,6 +135,7 @@ pub EnumElementOpt: Option<types::EnumElement> = {
 }
 
 pub Method: types::Method = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <oneway:ONEWAY?> <rt:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
@@ -143,7 +148,7 @@ pub Method: types::Method = {
             return_type: rt,
             args,
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -151,6 +156,7 @@ pub Method: types::Method = {
 }
 
 pub Arg: types::Arg = {
+    <p0:@L>
     <annotations:AnnotationList>
     <d:Direction> <t:Type> <n:IDENT?> => {
         types::Arg {
@@ -158,7 +164,7 @@ pub Arg: types::Arg = {
             name: n.map(str::to_owned),
             arg_type: t,
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
         }
     }
 }
@@ -176,6 +182,7 @@ pub Direction: types::Direction = {
 }
 
 pub Const: types::Const = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> CONST <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
@@ -186,7 +193,7 @@ pub Const: types::Const = {
             const_type: t,
             value: v.to_owned(),
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -194,6 +201,7 @@ pub Const: types::Const = {
 }
 
 pub Member: types::Member = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
@@ -204,7 +212,7 @@ pub Member: types::Member = {
             member_type: t,
             value: v.map(str::to_owned),
             annotations,
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }
@@ -212,6 +220,7 @@ pub Member: types::Member = {
 }
 
 pub EnumElement: types::EnumElement = {
+    <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L>
     <sp1:@L> <n:IDENT> <sp2:@R>
@@ -220,7 +229,7 @@ pub EnumElement: types::EnumElement = {
         types::EnumElement {
             name: n.to_owned(),
             value: v.map(str::to_owned),
-            doc: None,
+            doc: javadoc::get_javadoc(input, p0),
             full_range: types::Range::new(&lookup, fp1, fp2),
             symbol_range: types::Range::new(&lookup, sp1, sp2),
         }

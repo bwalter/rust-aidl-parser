@@ -1,0 +1,20 @@
+---
+source: src/parser.rs
+expression: res
+
+---
+Member(
+  name: "memberName",
+  member_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  value: None,
+  symbol_range: "...",
+  doc: Some("Member documentation"),
+  annotations: [],
+  full_range: "...",
+)
