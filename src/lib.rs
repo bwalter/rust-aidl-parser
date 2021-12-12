@@ -4,7 +4,7 @@ pub mod types;
 
 use lalrpop_util::lalrpop_mod;
 
-lalrpop_mod!(pub aidl);
+lalrpop_mod!(#[allow(clippy::all)] pub aidl);
 
 pub type ParseResult = Vec<ParseFile>;
 
@@ -25,7 +25,7 @@ where
 
         match rule_result {
             Ok(file) => ParseFile {
-                file: file,
+                file,
                 diagnostics,
             },
             Err(_) => ParseFile {
