@@ -7,9 +7,9 @@ use crate::ast;
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
 use crate::javadoc;
 
-pub File: Option<ast::File> = {
-    <p:Package> <vi:Import*> <i:Item> => {
-        i.map(|item| ast::File {
+pub OptFile: Option<ast::File> = {
+    <p:Package> <vi:Import*> <oi:OptItem> => {
+        oi.map(|item| ast::File {
             package: p,
             imports: vi,
             item,
@@ -49,7 +49,7 @@ pub QualifiedName: String = {
 }
 
 // Interface, parcelable or enum
-pub Item: Option<ast::Item> = {
+pub OptItem: Option<ast::Item> = {
     <i:Interface> => Some(ast::Item::Interface(i)),
     <p:Parcelable> => Some(ast::Item::Parcelable(p)),
     <e:Enum> => Some(ast::Item::Enum(e)),
@@ -63,7 +63,8 @@ pub Item: Option<ast::Item> = {
 pub Interface: ast::Interface = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:InterfaceElement*> "}" <fp2:@R> => {
+    <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptInterfaceElement*> "}" <fp2:@R> => {
+        // Convert Vec<Option<InterfaceElement>> into Vec<InterfaceElement>
         let elements: Vec<ast::InterfaceElement> = v.into_iter().flatten().collect();
 
         ast::Interface {
@@ -78,7 +79,7 @@ pub Interface: ast::Interface = {
 }
 
 // Method or const (with error recovery)
-pub InterfaceElement: Option<ast::InterfaceElement> = {
+pub OptInterfaceElement: Option<ast::InterfaceElement> = {
     <m:Method> => Some(ast::InterfaceElement::Method(m)),
     <c:Const> => Some(ast::InterfaceElement::Const(c)),
     ! =>? {
@@ -91,7 +92,8 @@ pub InterfaceElement: Option<ast::InterfaceElement> = {
 pub Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:ParcelableMember*> "}" <fp2:@R> => {
+    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableMember*> "}" <fp2:@R> => {
+        // Convert Vec<Option<Member>> into Vec<Member>
         let members: Vec<ast::Member> = v.into_iter().flatten().collect();
 
         ast::Parcelable {
@@ -106,7 +108,7 @@ pub Parcelable: ast::Parcelable = {
 }
 
 // Parcelable member
-pub ParcelableMember: Option<ast::Member> = {
+pub OptParcelableMember: Option<ast::Member> = {
     <m:Member> => Some(m),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid member", lookup, <>)?);
@@ -118,7 +120,8 @@ pub ParcelableMember: Option<ast::Member> = {
 pub Enum: ast::Enum = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<EnumElementOpt>> "}" <fp2:@R> => {
+    <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<OptEnumElement>> "}" <fp2:@R> => {
+        // Convert Vec<Option<EnumElement>> into Vec<EnumElement>
         let elements: Vec<ast::EnumElement> = v.into_iter().flatten().collect();
 
         ast::Enum {
@@ -133,7 +136,7 @@ pub Enum: ast::Enum = {
 }
 
 // Enum element (with error recovery)
-pub EnumElementOpt: Option<ast::EnumElement> = {
+pub OptEnumElement: Option<ast::EnumElement> = {
     <el:EnumElement> => Some(el),
     ! =>? {
         diagnostics.push(Diagnostic::from_error_recovery("Invalid enum element", lookup, <>)?);
@@ -394,10 +397,11 @@ pub TypeCustom: ast::Type = {
 }
 
 pub AnnotationList: Vec<ast::Annotation> = {
-    <v:Annotation*> => v.into_iter().flatten().collect()
+    // Convert Vec<Option<Annotation>> into Vec<Annotation>
+    <v:OptAnnotation*> => v.into_iter().flatten().collect()
 }
 
-pub Annotation: Option<ast::Annotation> = {
+pub OptAnnotation: Option<ast::Annotation> = {
     <n:ANNOTATION> <v:("(" <CommaSeparated<AnnotationParam>> ")")?> => {
         Some(ast::Annotation {
             name: n.to_owned(),
