@@ -17,7 +17,7 @@ pub File: Option<ast::File> = {
     }
 }
 
-// package x.y.z;
+// e.g. package x.y.z;
 pub Package: ast::Package = {
     PACKAGE <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
         ast::Package {
@@ -27,7 +27,7 @@ pub Package: ast::Package = {
     }
 }
 
-// import x.y.z;
+// e.g. import x.y.z;
 pub Import: ast::Package = {
     IMPORT <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
         ast::Package {
@@ -37,7 +37,7 @@ pub Import: ast::Package = {
     }
 }
 
-// x OR x.y.z
+// e.g. x OR x.y.z
 pub QualifiedName: String = {
     <v:(<IDENT> ".")*> <n:IDENT> => {
         if v.is_empty() {
@@ -48,6 +48,7 @@ pub QualifiedName: String = {
     }
 }
 
+// Interface, parcelable or enum
 pub Item: Option<ast::Item> = {
     <i:Interface> => Some(ast::Item::Interface(i)),
     <p:Parcelable> => Some(ast::Item::Parcelable(p)),
@@ -58,6 +59,7 @@ pub Item: Option<ast::Item> = {
     },
 }
 
+// e.g. interface Xyz { ... }
 pub Interface: ast::Interface = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -75,6 +77,7 @@ pub Interface: ast::Interface = {
     }
 }
 
+// Method or const (with error recovery)
 pub InterfaceElement: Option<ast::InterfaceElement> = {
     <m:Method> => Some(ast::InterfaceElement::Method(m)),
     <c:Const> => Some(ast::InterfaceElement::Const(c)),
@@ -84,6 +87,7 @@ pub InterfaceElement: Option<ast::InterfaceElement> = {
     },
 }
 
+// e.g. parcelable Xyz { ... }
 pub Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -101,6 +105,7 @@ pub Parcelable: ast::Parcelable = {
     }
 }
 
+// Parcelable member
 pub ParcelableMember: Option<ast::Member> = {
     <m:Member> => Some(m),
     ! =>? {
@@ -109,6 +114,7 @@ pub ParcelableMember: Option<ast::Member> = {
     },
 }
 
+// e.g. enum Xyz { ... }
 pub Enum: ast::Enum = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -126,6 +132,7 @@ pub Enum: ast::Enum = {
     }
 }
 
+// Enum element (with error recovery)
 pub EnumElementOpt: Option<ast::EnumElement> = {
     <el:EnumElement> => Some(el),
     ! =>? {
@@ -134,6 +141,7 @@ pub EnumElementOpt: Option<ast::EnumElement> = {
     },
 }
 
+// e.g. @Annotation String myMethod(...) = 2;
 pub Method: ast::Method = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -155,6 +163,7 @@ pub Method: ast::Method = {
     }
 }
 
+// e.g. @Annotation inout MyType argName
 pub Arg: ast::Arg = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -169,6 +178,7 @@ pub Arg: ast::Arg = {
     }
 }
 
+// Arg direction (in, out or inout)
 pub Direction: ast::Direction = {
     <d:DIRECTION?> => {
         match d {
@@ -181,6 +191,7 @@ pub Direction: ast::Direction = {
     }
 }
 
+// e.g. @Annotation const int XYZ = 3;
 pub Const: ast::Const = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -200,6 +211,7 @@ pub Const: ast::Const = {
     },
 }
 
+// e.g. @Annotation String myMember;
 pub Member: ast::Member = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -219,6 +231,7 @@ pub Member: ast::Member = {
     }
 }
 
+// e.g. @Annotation ELEMENT = 3
 pub EnumElement: ast::EnumElement = {
     <p0:@L>
     <annotations:AnnotationList>
@@ -276,11 +289,16 @@ pub TypeArray: ast::Type = {
     },
 }
 
+// Types which can be used as an array (primitives)
+//
+// Note: as we don't know at this point if TypeCustom is an object (interface, parcelable)
+// or a primitive (enum), we consider it to be valid.
 TypeArrayParameterValid = {
     TypePrimitive,
     TypeCustom,
 }
 
+// Types which cannot be used as an array (non-primitives)
 TypeArrayParameterInvalid = {
     TypeVoid,
     TypeString,
@@ -303,6 +321,7 @@ pub TypeList: ast::Type = {
     },
 }
 
+// Parse Map and return TypeKind::Invalid if the parameters are not correct
 pub TypeMap: ast::Type = {
     <p1:@L> MAP "<"
         <k:TypeCollectionParameterValid> "," <v:TypeCollectionParameterValid>
@@ -343,6 +362,10 @@ pub TypeMap: ast::Type = {
     },
 }
 
+// Types which can be used as a List or Map generic parameter (objects)
+//
+// Note: as we don't know at this point if TypeCustom is an object (interface, parcelable)
+// or a primitive (enum), we consider it to be valid.
 TypeCollectionParameterValid = {
     TypeString,
     TypeList,
@@ -350,12 +373,14 @@ TypeCollectionParameterValid = {
     TypeCustom,
 }
 
+// Types which cannot be used as a List or Map generic parameter (non-objects)
 TypeCollectionParameterInvalid = {
     TypeVoid,
     TypePrimitive,
     TypeArray,
 }
 
+// Unresolved custom type (should be an interface, a parcelable or an enum)
 pub TypeCustom: ast::Type = {
     <p1:@L> <n:QualifiedName> <p2:@R> => {
         ast::Type {
@@ -396,6 +421,7 @@ pub Value: &'input str = {
     "{" "}" => "{}",
 }
 
+// Comma separated list with optional trailing comma
 CommaSeparated<T>: Vec<T> = {
     <mut v:(<T> ",")*> <e:T?> => match e {
         None => v,
@@ -406,6 +432,7 @@ CommaSeparated<T>: Vec<T> = {
     }
 }
 
+// Tokens
 match {
     // Whitespaces, comments, EOL
     r"\s*" => { }, // The default whitespace skipping is disabled and an `ignore pattern` is specified
