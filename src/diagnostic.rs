@@ -39,4 +39,34 @@ impl Diagnostic {
             range: Range::new(lookup, p1, p2),
         })
     }
+
+    pub(crate) fn from_parse_error(
+        lookup: &line_col::LineColLookup,
+        e: ParseError,
+    ) -> Option<Diagnostic> {
+        let text = e.to_string();
+
+        let opt_pos_pair: Option<(usize, usize)> = match e {
+            lalrpop_util::ParseError::InvalidToken { location } => Some((location, location)),
+            lalrpop_util::ParseError::UnrecognizedEOF {
+                location,
+                expected: _,
+            } => Some((location, location)),
+            lalrpop_util::ParseError::UnrecognizedToken { token, expected: _ } => {
+                Some((token.0, token.2))
+            }
+            lalrpop_util::ParseError::ExtraToken { token } => Some((token.0, token.2)),
+            lalrpop_util::ParseError::User { error: _ } => None,
+        };
+
+        if let Some((p1, p2)) = opt_pos_pair {
+            Some(Diagnostic {
+                kind: DiagnosticKind::Error,
+                text,
+                range: Range::new(lookup, p1, p2),
+            })
+        } else {
+            None
+        }
+    }
 }

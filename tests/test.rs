@@ -41,11 +41,11 @@ fn test_parse() -> Result<()> {
     // For each file, 1 result
     assert_eq!(parse_results.len(), 3);
     for res in parse_results.iter() {
-        // File successfully parsed
-        assert!(res.file.is_some());
-
         // No error/warning
         assert!(res.diagnostics.is_empty());
+
+        // File exists
+        assert!(res.file.is_some());
     }
 
     let file = parse_results

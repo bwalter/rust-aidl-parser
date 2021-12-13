@@ -2,6 +2,7 @@ pub mod ast;
 pub mod diagnostic;
 mod javadoc;
 
+use diagnostic::Diagnostic;
 use lalrpop_util::lalrpop_mod;
 
 lalrpop_mod!(#[allow(clippy::all)] pub aidl);
@@ -10,7 +11,7 @@ pub type ParseResult = Vec<ParseFileResult>;
 
 pub struct ParseFileResult {
     pub file: Option<ast::File>,
-    pub diagnostics: Vec<diagnostic::Diagnostic>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Parse the AIDL files and, for each file, return AST and diagnostics.
@@ -22,14 +23,21 @@ where
         let lookup = line_col::LineColLookup::new(i.as_ref());
         let mut diagnostics = Vec::new();
 
-        let rule_result = aidl::FileParser::new().parse(&lookup, &mut diagnostics, i.as_ref());
+        let rule_result = aidl::OptFileParser::new().parse(&lookup, &mut diagnostics, i.as_ref());
 
         match rule_result {
             Ok(file) => ParseFileResult { file, diagnostics },
-            Err(_) => ParseFileResult {
-                file: None,
-                diagnostics,
-            },
+            Err(e) => {
+                // Append the parse error to the diagnostics
+                if let Some(diagnostic) = Diagnostic::from_parse_error(&lookup, e) {
+                    diagnostics.push(diagnostic)
+                }
+
+                ParseFileResult {
+                    file: None,
+                    diagnostics,
+                }
+            }
         }
     });
 
@@ -83,19 +91,32 @@ mod tests {
             import a.b.c;
             interface MyInterface {}
         "#;
-        assert_parser!(input, crate::aidl::FileParser::new());
+        assert_parser!(input, crate::aidl::OptFileParser::new());
 
         Ok(())
     }
 
     #[test]
-    fn test_file_with_errors() -> Result<()> {
+    fn test_file_with_unrecovered_error() -> Result<()> {
+        use crate::diagnostic::ParseError;
+
+        let input = "wrong, wrong and wrong!";
+        let lookup = lookup(input);
+        let res = crate::aidl::OptFileParser::new().parse(&lookup, &mut Vec::new(), input);
+
+        assert!(matches!(res, Err(ParseError::InvalidToken { .. })));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_with_recovered_error() -> Result<()> {
         let input = r#"package x.y.z;
                import a.b.c;
                oops_interface MyInterface {}
            "#;
         let mut diagnostics = Vec::new();
-        assert_parser!(input, crate::aidl::FileParser::new(), &mut diagnostics);
+        assert_parser!(input, crate::aidl::OptFileParser::new(), &mut diagnostics);
 
         assert_diagnostics!(diagnostics, @r###"
         [
@@ -658,7 +679,7 @@ mod tests {
     #[test]
     fn test_annotation1() -> Result<()> {
         let input = "@AnnotationName";
-        assert_parser!(input, crate::aidl::AnnotationParser::new());
+        assert_parser!(input, crate::aidl::OptAnnotationParser::new());
 
         Ok(())
     }
@@ -666,7 +687,7 @@ mod tests {
     #[test]
     fn test_annotation2() -> Result<()> {
         let input = "@AnnotationName()";
-        assert_parser!(input, crate::aidl::AnnotationParser::new());
+        assert_parser!(input, crate::aidl::OptAnnotationParser::new());
 
         Ok(())
     }
@@ -674,7 +695,7 @@ mod tests {
     #[test]
     fn test_annotation3() -> Result<()> {
         let input = "@AnnotationName( Hello)";
-        assert_parser!(input, crate::aidl::AnnotationParser::new());
+        assert_parser!(input, crate::aidl::OptAnnotationParser::new());
 
         Ok(())
     }
@@ -682,7 +703,7 @@ mod tests {
     #[test]
     fn test_annotation4() -> Result<()> {
         let input = "@AnnotationName(Hello=\"World\")";
-        assert_parser!(input, crate::aidl::AnnotationParser::new());
+        assert_parser!(input, crate::aidl::OptAnnotationParser::new());
 
         Ok(())
     }
@@ -694,7 +715,7 @@ mod tests {
         settings.bind_to_thread();
 
         let input = "@AnnotationName(Hello=\"World\", Hi, Servus= 3 )";
-        assert_parser!(input, crate::aidl::AnnotationParser::new());
+        assert_parser!(input, crate::aidl::OptAnnotationParser::new());
 
         Ok(())
     }
