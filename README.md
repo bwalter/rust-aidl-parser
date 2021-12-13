@@ -22,8 +22,6 @@ TODO:
 ```rust
 #[test]
 fn test_parse() -> Result<()> {
-    use aidl_parser::ast::*;
-
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
@@ -54,97 +52,18 @@ fn test_parse() -> Result<()> {
         }
     "#;
 
-    let inputs = [interface_aidl, enum_aidl, parcelable_aidl];
-    let files = aidl_parser::parse(&inputs)?;
+    // Parse AIDL files and return AST
+    let parse_results = aidl_parser::parse(&inputs);
 
-    assert_eq!(
-        files[0],
-        File(
-          package: Package(
-            name: "com.bwa.aidl_test",
-            symbol_range: "...",
-          ),
-          imports: [
-            Import(
-              name: "com.bwa.aidl_test.MyEnum",
-              symbol_range: "...",
-            ),
-            Import(
-              name: "com.bwa.aidl_test.MyParcelable",
-              symbol_range: "...",
-            ),
-          ],
-          item: Interface(Interface(
-            name: "MyInterface",
-            elements: [
-              Method(Method(
-                oneway: true,
-                name: "hello",
-                return_type: Type(
-                  name: "void",
-                  kind: Void,
-                  generic_types: [],
-                  definition: None,
-                  symbol_range: "...",
-                ),
-                args: [
-                  Arg(
-                    direction: Unspecified,
-                    name: Some("e"),
-                    arg_type: Type(
-                      name: "MyEnum",
-                      kind: Custom,
-                      generic_types: [],
-                      definition: None,
-                      symbol_range: "...",
-                    ),
-                    doc: None,
-                    annotations: [],
-                  ),
-                ],
-                annotations: [],
-                doc: None,
-                symbol_range: "...",
-                full_range: "...",
-              )),
-              Method(Method(
-                oneway: false,
-                name: "get_name",
-                return_type: Type(
-                  name: "String",
-                  kind: String,
-                  generic_types: [],
-                  definition: None,
-                  symbol_range: "...",
-                ),
-                args: [
-                  Arg(
-                    direction: Unspecified,
-                    name: None,
-                    arg_type: Type(
-                      name: "MyParcelable",
-                      kind: Custom,
-                      generic_types: [],
-                      definition: None,
-                      symbol_range: "...",
-                    ),
-                    doc: None,
-                    annotations: [],
-                  ),
-                ],
-                annotations: [],
-                doc: None,
-                symbol_range: "...",
-                full_range: "...",
-              )),
-            ],
-            annotations: [],
-            doc: Some("Documentation of MyInterface"),
-            full_range: "...",
-            symbol_range: "...",
-          )),
-        )
-    );
+    // For each file, 1 result
+    assert_eq!(parse_results.len(), 3);
+    for res in parse_results.iter() {
+        // File successfully parsed
+        assert!(res.file.is_some());
+
+        // No error/warning
+        assert!(res.diagnostics.is_empty());
+    }
 
     Ok(())
 ```

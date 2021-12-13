@@ -36,8 +36,19 @@ fn test_parse() -> Result<()> {
     "#;
 
     let inputs = [interface_aidl, enum_aidl, parcelable_aidl];
-    let file_results = aidl_parser::parse(&inputs);
-    let file = file_results
+    let parse_results = aidl_parser::parse(&inputs);
+
+    // For each file, 1 result
+    assert_eq!(parse_results.len(), 3);
+    for res in parse_results.iter() {
+        // File successfully parsed
+        assert!(res.file.is_some());
+
+        // No error/warning
+        assert!(res.diagnostics.is_empty());
+    }
+
+    let file = parse_results
         .into_iter()
         .next()
         .unwrap()
@@ -57,12 +68,12 @@ fn test_parse_error() -> Result<()> {
     let aidl = "package x.y.z; completly wrong item {}";
 
     let inputs = [aidl];
-    let file_results = aidl_parser::parse(&inputs);
+    let parse_results = aidl_parser::parse(&inputs);
 
-    assert_eq!(file_results.len(), 1);
-    assert!(file_results[0].file.is_none());
+    assert_eq!(parse_results.len(), 1);
+    assert!(parse_results[0].file.is_none());
 
-    insta::assert_ron_snapshot!(file_results[0].diagnostics, @r###"
+    insta::assert_ron_snapshot!(parse_results[0].diagnostics, @r###"
     [
       Diagnostic(
         kind: Error,
