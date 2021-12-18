@@ -1,6 +1,6 @@
 ---
 source: tests/test.rs
-expression: file
+expression: "res[0].file.as_ref().unwrap()"
 
 ---
 File(
@@ -9,24 +9,41 @@ File(
     symbol_range: "...",
   ),
   imports: [
-    Package(
-      name: "com.bwa.aidl_test.MyEnum",
+    Import(
+      path: "com.bwa.aidl_test",
+      name: "MyEnum",
       symbol_range: "...",
     ),
-    Package(
-      name: "com.bwa.aidl_test.MyParcelable",
+    Import(
+      path: "com.bwa.aidl_test",
+      name: "MyParcelable",
       symbol_range: "...",
     ),
   ],
   item: Interface(Interface(
     name: "MyInterface",
     elements: [
+      Const(Const(
+        name: "MY_CONST",
+        const_type: Type(
+          name: "int",
+          kind: Primitive,
+          generic_types: [],
+          definition: None,
+          symbol_range: "...",
+        ),
+        value: "12",
+        annotations: [],
+        doc: None,
+        symbol_range: "...",
+        full_range: "...",
+      )),
       Method(Method(
-        oneway: true,
+        oneway: false,
         name: "hello",
         return_type: Type(
-          name: "void",
-          kind: Void,
+          name: "String",
+          kind: String,
           generic_types: [],
           definition: None,
           symbol_range: "...",
@@ -39,29 +56,12 @@ File(
               name: "MyEnum",
               kind: Custom,
               generic_types: [],
-              definition: None,
+              definition: Some("com.bwa.aidl_test.MyEnum"),
               symbol_range: "...",
             ),
             doc: None,
             annotations: [],
           ),
-        ],
-        annotations: [],
-        doc: None,
-        symbol_range: "...",
-        full_range: "...",
-      )),
-      Method(Method(
-        oneway: false,
-        name: "get_name",
-        return_type: Type(
-          name: "String",
-          kind: String,
-          generic_types: [],
-          definition: None,
-          symbol_range: "...",
-        ),
-        args: [
           Arg(
             direction: Unspecified,
             name: None,
@@ -69,7 +69,7 @@ File(
               name: "MyParcelable",
               kind: Custom,
               generic_types: [],
-              definition: None,
+              definition: Some("com.bwa.aidl_test.MyParcelable"),
               symbol_range: "...",
             ),
             doc: None,
@@ -77,13 +77,13 @@ File(
           ),
         ],
         annotations: [],
-        doc: None,
+        doc: Some("Be polite and say hello"),
         symbol_range: "...",
         full_range: "...",
       )),
     ],
     annotations: [],
-    doc: Some("Documentation of MyInterface"),
+    doc: None,
     full_range: "...",
     symbol_range: "...",
   )),

@@ -1,0 +1,61 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Method(
+  oneway: false,
+  name: "myMethod",
+  return_type: Type(
+    name: "TypeName",
+    kind: Custom,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  args: [
+    Arg(
+      direction: Unspecified,
+      name: None,
+      arg_type: Type(
+        name: "ArgType1",
+        kind: Custom,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      doc: None,
+      annotations: [],
+    ),
+    Arg(
+      direction: Unspecified,
+      name: Some("arg2"),
+      arg_type: Type(
+        name: "ArgType2",
+        kind: Custom,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      doc: None,
+      annotations: [],
+    ),
+    Arg(
+      direction: Unspecified,
+      name: None,
+      arg_type: Type(
+        name: "ArgType3",
+        kind: Custom,
+        generic_types: [],
+        definition: None,
+        symbol_range: "...",
+      ),
+      doc: None,
+      annotations: [],
+    ),
+  ],
+  annotations: [],
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
+)

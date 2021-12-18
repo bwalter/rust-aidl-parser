@@ -1,0 +1,10 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Import(
+  path: "x.y",
+  name: "z",
+  symbol_range: "...",
+)

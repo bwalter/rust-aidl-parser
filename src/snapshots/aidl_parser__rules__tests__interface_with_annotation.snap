@@ -1,0 +1,22 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Interface(
+  name: "Potato",
+  elements: [],
+  annotations: [
+    Annotation(
+      name: "@InterfaceAnnotation1",
+      key_values: {},
+    ),
+    Annotation(
+      name: "@InterfaceAnnotation2",
+      key_values: {},
+    ),
+  ],
+  doc: None,
+  full_range: "...",
+  symbol_range: "...",
+)

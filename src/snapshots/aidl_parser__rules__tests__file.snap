@@ -1,0 +1,26 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Some(File(
+  package: Package(
+    name: "x.y.z",
+    symbol_range: "...",
+  ),
+  imports: [
+    Import(
+      path: "a.b",
+      name: "c",
+      symbol_range: "...",
+    ),
+  ],
+  item: Interface(Interface(
+    name: "MyInterface",
+    elements: [],
+    annotations: [],
+    doc: None,
+    full_range: "...",
+    symbol_range: "...",
+  )),
+))

@@ -1,0 +1,20 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Type(
+  name: "List",
+  kind: List,
+  generic_types: [
+    Type(
+      name: "MyObject",
+      kind: Custom,
+      generic_types: [],
+      definition: None,
+      symbol_range: "...",
+    ),
+  ],
+  definition: None,
+  symbol_range: "...",
+)

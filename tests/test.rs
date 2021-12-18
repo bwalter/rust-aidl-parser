@@ -1,19 +1,22 @@
-use anyhow::{Context, Result};
+use aidl_parser::ParseFileResult;
+use anyhow::Result;
 
 #[test]
 fn test_parse() -> Result<()> {
+    use aidl_parser::Parser;
+
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
         import com.bwa.aidl_test.MyEnum;
         import com.bwa.aidl_test.MyParcelable;
 
-        /**
-         * Documentation of MyInterface
-         */
         interface MyInterface {
-            oneway void hello(MyEnum e);
-            String get_name(MyParcelable);
+            const int MY_CONST = 12;
+            /**
+             * Be polite and say hello
+             */
+            String hello(MyEnum e, MyParcelable);
         }
     "#;
 
@@ -35,31 +38,63 @@ fn test_parse() -> Result<()> {
         }
     "#;
 
-    let inputs = [interface_aidl, enum_aidl, parcelable_aidl];
-    let parse_results = aidl_parser::parse(&inputs);
+    // Parse AIDL files
+    let mut parser = Parser::new();
+    parser.add_content(0, interface_aidl);
+    parser.add_content(1, parcelable_aidl);
+    parser.add_content(2, enum_aidl);
+    let res = parser.parse();
 
     // For each file, 1 result
-    assert_eq!(parse_results.len(), 3);
-    for res in parse_results.iter() {
-        // No error/warning
-        assert!(res.diagnostics.is_empty());
+    assert_eq!(res.len(), 3);
 
-        // File exists
-        assert!(res.file.is_some());
-    }
+    // No error/warning
+    assert!(res[0].diagnostics.is_empty());
+    assert!(res[1].diagnostics.is_empty());
+    assert!(res[2].diagnostics.is_empty());
 
-    let file = parse_results
-        .into_iter()
-        .next()
-        .unwrap()
-        .file
-        .context("Could not parse file")?;
+    // AIDL content
+    use aidl_parser::ast;
+    let ok = if let [ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Interface(interface @ ast::Interface { .. }),
+                ..
+            }),
+        ..
+    }, ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
+                ..
+            }),
+        ..
+    }, ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
+                ..
+            }),
+        ..
+    }] = &res[..]
+    {
+        assert_eq!(interface.name, "MyInterface");
+        assert_eq!(parcelable.name, "MyParcelable");
+        assert_eq!(enum_.name, "MyEnum");
+        true
+    } else {
+        false
+    };
 
-    insta::assert_ron_snapshot!(file, {
+    insta::assert_ron_snapshot!(res[0].file.as_ref().unwrap(), {
         ".**.symbol_range" => "...",
         ".**.full_range" => "...",
     });
 
+    assert!(ok);
     Ok(())
 }
 
@@ -67,8 +102,9 @@ fn test_parse() -> Result<()> {
 fn test_parse_error() -> Result<()> {
     let aidl = "package x.y.z; completly wrong item {}";
 
-    let inputs = [aidl];
-    let parse_results = aidl_parser::parse(&inputs);
+    let mut parser = aidl_parser::Parser::new();
+    parser.add_content((), aidl);
+    let parse_results = parser.parse();
 
     assert_eq!(parse_results.len(), 1);
     assert!(parse_results[0].file.is_none());
@@ -83,11 +119,14 @@ fn test_parse_error() -> Result<()> {
             line_col: (1, 16),
           ),
           end: Position(
-            offset: 37,
-            line_col: (1, 38),
+            offset: 24,
+            line_col: (1, 25),
           ),
         ),
-        text: "Invalid item: Unrecognized token `completly` found at 15:24\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
+        message: "Invalid item - Unrecognized token `completly`\nExpected one of ANNOTATION, ENUM, IMPORT or PARCELABLE",
+        context_message: Some("unrecognized token"),
+        hint: None,
+        related_infos: [],
       ),
     ]
     "###);

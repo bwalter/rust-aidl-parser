@@ -1,0 +1,9 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Package(
+  name: "x",
+  symbol_range: "...",
+)

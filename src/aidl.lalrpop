@@ -18,7 +18,7 @@ pub OptFile: Option<ast::File> = {
 }
 
 // e.g. package x.y.z;
-pub Package: ast::Package = {
+pub(crate) Package: ast::Package = {
     PACKAGE <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
         ast::Package {
             name,
@@ -28,17 +28,18 @@ pub Package: ast::Package = {
 }
 
 // e.g. import x.y.z;
-pub Import: ast::Package = {
-    IMPORT <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
-        ast::Package {
-            name,
+pub(crate) Import: ast::Import = {
+    IMPORT <p1:@L> <v:(<IDENT> ".")+> <n:IDENT> ";" <p2:@R> => {
+        ast::Import {
+            path: v.join("."),
+            name: n.to_owned(),
             symbol_range: ast::Range::new(lookup, p1, p2),
         }
     }
 }
 
 // e.g. x OR x.y.z
-pub QualifiedName: String = {
+QualifiedName: String = {
     <v:(<IDENT> ".")*> <n:IDENT> => {
         if v.is_empty() {
             n.to_owned()
@@ -49,18 +50,20 @@ pub QualifiedName: String = {
 }
 
 // Interface, parcelable or enum
-pub OptItem: Option<ast::Item> = {
+OptItem: Option<ast::Item> = {
     <i:Interface> => Some(ast::Item::Interface(i)),
     <p:Parcelable> => Some(ast::Item::Parcelable(p)),
     <e:Enum> => Some(ast::Item::Enum(e)),
     ! =>? {
-        diagnostics.push(Diagnostic::from_error_recovery("Invalid item", lookup, <>)?);
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid item", lookup, <>) {
+            diagnostics.push(d);
+        }
         Ok(None)
     },
 }
 
 // e.g. interface Xyz { ... }
-pub Interface: ast::Interface = {
+pub(crate) Interface: ast::Interface = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptInterfaceElement*> "}" <fp2:@R> => {
@@ -79,17 +82,19 @@ pub Interface: ast::Interface = {
 }
 
 // Method or const (with error recovery)
-pub OptInterfaceElement: Option<ast::InterfaceElement> = {
+OptInterfaceElement: Option<ast::InterfaceElement> = {
     <m:Method> => Some(ast::InterfaceElement::Method(m)),
     <c:Const> => Some(ast::InterfaceElement::Const(c)),
     ! =>? {
-        diagnostics.push(Diagnostic::from_error_recovery("Invalid interface element", lookup, <>)?);
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid interface element", lookup, <>) {
+            diagnostics.push(d);
+        }
         Ok(None)
     },
 }
 
 // e.g. parcelable Xyz { ... }
-pub Parcelable: ast::Parcelable = {
+pub(crate) Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableMember*> "}" <fp2:@R> => {
@@ -108,16 +113,18 @@ pub Parcelable: ast::Parcelable = {
 }
 
 // Parcelable member
-pub OptParcelableMember: Option<ast::Member> = {
+OptParcelableMember: Option<ast::Member> = {
     <m:Member> => Some(m),
     ! =>? {
-        diagnostics.push(Diagnostic::from_error_recovery("Invalid member", lookup, <>)?);
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid member", lookup, <>) {
+            diagnostics.push(d);
+        }
         Ok(None)
     },
 }
 
 // e.g. enum Xyz { ... }
-pub Enum: ast::Enum = {
+pub(crate) Enum: ast::Enum = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> ENUM <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:CommaSeparated<OptEnumElement>> "}" <fp2:@R> => {
@@ -136,16 +143,18 @@ pub Enum: ast::Enum = {
 }
 
 // Enum element (with error recovery)
-pub OptEnumElement: Option<ast::EnumElement> = {
+OptEnumElement: Option<ast::EnumElement> = {
     <el:EnumElement> => Some(el),
     ! =>? {
-        diagnostics.push(Diagnostic::from_error_recovery("Invalid enum element", lookup, <>)?);
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid enum element", lookup, <>) {
+            diagnostics.push(d);
+        }
         Ok(None)
     },
 }
 
 // e.g. @Annotation String myMethod(...) = 2;
-pub Method: ast::Method = {
+pub(crate) Method: ast::Method = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <oneway:ONEWAY?> <rt:Type>
@@ -167,10 +176,11 @@ pub Method: ast::Method = {
 }
 
 // e.g. @Annotation inout MyType argName
-pub Arg: ast::Arg = {
+pub(crate) Arg: ast::Arg = {
     <p0:@L>
+    <d:Direction> 
     <annotations:AnnotationList>
-    <d:Direction> <t:Type> <n:IDENT?> => {
+    <t:Type> <n:IDENT?> => {
         ast::Arg {
             direction: d,
             name: n.map(str::to_owned),
@@ -182,7 +192,7 @@ pub Arg: ast::Arg = {
 }
 
 // Arg direction (in, out or inout)
-pub Direction: ast::Direction = {
+Direction: ast::Direction = {
     <d:DIRECTION?> => {
         match d {
             Some("in") => ast::Direction::In,
@@ -195,7 +205,7 @@ pub Direction: ast::Direction = {
 }
 
 // e.g. @Annotation const int XYZ = 3;
-pub Const: ast::Const = {
+pub(crate) Const: ast::Const = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> CONST <t:Type>
@@ -215,7 +225,7 @@ pub Const: ast::Const = {
 }
 
 // e.g. @Annotation String myMember;
-pub Member: ast::Member = {
+pub(crate) Member: ast::Member = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <t:Type>
@@ -235,7 +245,7 @@ pub Member: ast::Member = {
 }
 
 // e.g. @Annotation ELEMENT = 3
-pub EnumElement: ast::EnumElement = {
+EnumElement: ast::EnumElement = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L>
@@ -252,7 +262,7 @@ pub EnumElement: ast::EnumElement = {
     }
 }
 
-pub Type: ast::Type = {
+pub(crate) Type: ast::Type = {
     TypeVoid,
     TypePrimitive,
     TypeString,
@@ -262,30 +272,33 @@ pub Type: ast::Type = {
     TypeCustom,
 }
 
-pub TypeVoid: ast::Type = {
+TypeVoid: ast::Type = {
     <p1:@L> <n:VOID> <p2:@R> =>
         ast::Type::simple_type(n, ast::TypeKind::Void, lookup, p1, p2)
 }
 
-pub TypePrimitive: ast::Type = {
+TypePrimitive: ast::Type = {
     <p1:@L> <n:PRIMITIVE> <p2:@R> =>
         ast::Type::simple_type(n, ast::TypeKind::Primitive, lookup, p1, p2)
 }
 
-pub TypeString: ast::Type = {
+TypeString: ast::Type = {
     <p1:@L> <n:STRING> <p2:@R> =>
         ast::Type::simple_type(n, ast::TypeKind::String, lookup, p1, p2)
 }
 
-pub TypeArray: ast::Type = {
+TypeArray: ast::Type = {
     <p1:@L> <pp1:@L> <p:TypeArrayParameterValid> <pp2:@R> "[" "]" <p2:@L> => {
         ast::Type::array(p, &lookup, p1, p2)
     },
     <p1:@L> <pp1:@L> <p:TypeArrayParameterInvalid> "[" "]" <pp2:@R> <p2:@L> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
-            text: format!("Invalid array parameter ({}): must be a primitive or an enum", p.name),
+            message: format!("Invalid array parameter: `{}`", p.name),
+            context_message: Some("invalid parameter".to_owned()),
             range: ast::Range::new(&lookup, pp1, pp2),
+            hint: Some("must be a primitive or an enum".to_owned()),
+            related_infos: Vec::new(),
         });
 
         ast::Type::invalid_with_generics("Array", &[p], &lookup, p1, p2)
@@ -310,22 +323,25 @@ TypeArrayParameterInvalid = {
     TypeMap,
 }
 
-pub TypeList: ast::Type = {
+TypeList: ast::Type = {
     <p1:@L> LIST "<" <p:TypeCollectionParameterValid> ">" <p2:@R> => {
         ast::Type::list(p, &lookup, p1, p2)
     },
     <p1:@L> LIST "<" <pp1:@L> <p:TypeCollectionParameterInvalid> <pp2:@R> ">" <p2:@R> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
-            text: format!("Invalid list parameter ({}): must be an object", p.name),
+            message: format!("Invalid list parameter: `{}`", p.name),
+            context_message: Some("invalid parameter".to_owned()),
             range: ast::Range::new(&lookup, pp1, pp2),
+            hint: Some("must be an object".to_owned()),
+            related_infos: Vec::new(),
         });
         ast::Type::invalid_with_generics("List", &[p], &lookup, p1, p2)
     },
 }
 
 // Parse Map and return TypeKind::Invalid if the parameters are not correct
-pub TypeMap: ast::Type = {
+TypeMap: ast::Type = {
     <p1:@L> MAP "<"
         <k:TypeCollectionParameterValid> "," <v:TypeCollectionParameterValid>
     ">" <p2:@R> => {
@@ -333,22 +349,28 @@ pub TypeMap: ast::Type = {
     },
     <p1:@L> MAP "<"
         <kp1:@L> <k:TypeCollectionParameterInvalid> <kp2:@R> ","
-        <v:TypeCollectionParameterInvalid>
+        <v:TypeCollectionParameterValid>
     ">"  <p2:@R> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
-            text: format!("Invalid map key ({}): key must be an object", k.name),
+            message: format!("Invalid map key: {}", k.name),
+            context_message: Some("invalid key".to_owned()),
             range: ast::Range::new(&lookup, kp1, kp2),
+            hint: Some("key must be an object".to_owned()),
+            related_infos: Vec::new(),
         });
         ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
     <p1:@L> MAP "<" <pp1:@L>
-        <k:TypeCollectionParameterInvalid> "," <v:TypeCollectionParameterValid>
+        <k:TypeCollectionParameterInvalid> "," <v:TypeCollectionParameterInvalid>
     <pp2:@R> ">" <p2:@R> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
-            text: format!("Invalid map parameters ({}, {}): key and value must be objects", k.name, v.name),
+            message: format!("Invalid map parameters: {}, {}", k.name, v.name),
+            context_message: Some("invalid parameters".to_owned()),
             range: ast::Range::new(&lookup, pp1, pp2),
+            hint: Some("key and value must be objects".to_owned()),
+            related_infos: Vec::new(),
         });
         ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
@@ -358,8 +380,11 @@ pub TypeMap: ast::Type = {
     ">" <p2:@R> => {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
-            text: format!("Invalid map value ({}): value must be an object", v.name),
+            message: format!("Invalid map value: {}", v.name),
+            context_message: Some("invalid value".to_owned()),
             range: ast::Range::new(&lookup, vp1, vp2),
+            hint: Some("value must be an object".to_owned()),
+            related_infos: Vec::new(),
         });
         ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
     },
@@ -384,7 +409,7 @@ TypeCollectionParameterInvalid = {
 }
 
 // Unresolved custom type (should be an interface, a parcelable or an enum)
-pub TypeCustom: ast::Type = {
+TypeCustom: ast::Type = {
     <p1:@L> <n:QualifiedName> <p2:@R> => {
         ast::Type {
             name: n.to_owned(),
@@ -396,29 +421,25 @@ pub TypeCustom: ast::Type = {
     }
 }
 
-pub AnnotationList: Vec<ast::Annotation> = {
+AnnotationList: Vec<ast::Annotation> = {
     // Convert Vec<Option<Annotation>> into Vec<Annotation>
     <v:OptAnnotation*> => v.into_iter().flatten().collect()
 }
 
-pub OptAnnotation: Option<ast::Annotation> = {
+pub(crate) OptAnnotation: Option<ast::Annotation> = {
     <n:ANNOTATION> <v:("(" <CommaSeparated<AnnotationParam>> ")")?> => {
         Some(ast::Annotation {
             name: n.to_owned(),
             key_values: v.unwrap_or_default().into_iter().collect(),
         })
     },
-    //! =>? {
-    //    diagnostics.push(Diagnostic::from_error_recovery("Invalid annotation", lookup, <>)?);
-    //    Ok(None)
-    //},
 }
 
 AnnotationParam: (String, Option<String>) = {
     <k:IDENT> <v:("=" <Value>)?> => (k.to_owned(), v.map(str::to_owned))
 }
 
-pub Value: &'input str = {
+pub(crate) Value: &'input str = {
     NUMBER,
     QUOTED_STRING,
     BOOLEAN,

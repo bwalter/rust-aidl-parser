@@ -4,24 +4,34 @@ AIDL parser for Rust.
 
 ## Features
 
-The following items are supported:
-- Package
-- Imports
-- Item (Interface, Parcelable, Enum)
-- InterfaceElement (Method, Constant)
-- ParcelableElement (Member)
-- Enum (EnumElement)
-
-It provides a basic validation but does not (yet) check for the full specifications.
+- Generate AIDL AST with all supported elements (including Javadoc)
+- Recover errors
+- Provide diagnostics (errors and warnings) with location
 
 TODO:
-- Resolve types
+- Document how to display diagnostics (e.g. with CodeSpan)
+- Remove line_col from results and let the client calculate it?
+- Annotation attached to primitive type
+- union (Android 12)
+- nested types (Android T)
+- Parcelable declaration(= forward declaration), with optional annotations
+- Allow annotations for list/map parameters?
+- Android types: android.os.Parcelable, IBinder, FileDescriptor, ParcelFileDescriptor, 
+- validate:
+  - direction (based on Object), required for all non-primitive parameters, other restrictions regarding in
+  - duplicated methods
+  - unused/duplicated imports
+  - oneway only for void
+
+
 
 ## Example
 
 ```rust
 #[test]
 fn test_parse() -> Result<()> {
+    use aidl_parser::{ast, Parser};
+    
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
@@ -52,18 +62,38 @@ fn test_parse() -> Result<()> {
         }
     "#;
 
-    // Parse AIDL files and return AST
-    let parse_results = aidl_parser::parse(&inputs);
+    // Parse AIDL files
+    let mut parser = Parser::new();
+    parser.add_content(0, interface_aidl);
+    parser.add_content(1, parcelable_aidl);
+    parser.add_content(2, enum_aidl);
+    let res = parser.parse();
 
     // For each file, 1 result
-    assert_eq!(parse_results.len(), 3);
-    for res in parse_results.iter() {
-        // File successfully parsed
-        assert!(res.file.is_some());
+    assert_eq!(res.len(), 3);
 
-        // No error/warning
-        assert!(res.diagnostics.is_empty());
+    // No error/warning
+    assert!(res[0].diagnostics.is_empty());
+    assert!(res[1].diagnostics.is_empty());
+    assert!(res[2].diagnostics.is_empty());
+
+    // File items
+    let item0 = res[0].file.as_ref().unwrap().item;
+    if let ast::Item::Interface(ast::Interface { ref name, .. }) {
+        assert_eq!("name", "MyInterface");
     }
+    assert!(matches!(
+        item0,
+        ast::Item::Interface(ast::Interface { ref name, .. }) if name == "MyInterface",
+    ));
+    assert!(matches!(
+        res[1].file.as_ref().unwrap().item,
+        ast::Item::Parcelable(ast::Parcelable { ref name, .. }) if name == "MyParcelable",
+    ));
+    assert!(matches!(
+        res[2].file.as_ref().unwrap().item,
+        ast::Item::Enum(ast::Enum { ref name, .. }) if name == "MyEnum",
+    ));
 
     Ok(())
 ```

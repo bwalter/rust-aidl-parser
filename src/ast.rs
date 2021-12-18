@@ -7,10 +7,10 @@ pub struct Project {
     pub files: HashMap<ItemKey, File>,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct File {
     pub package: Package,
-    pub imports: Vec<Package>,
+    pub imports: Vec<Import>,
     pub item: Item,
 }
 
@@ -44,28 +44,35 @@ impl Range {
     }
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Package {
     pub name: String,
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Import {
+    pub path: String,
+    pub name: String,
+    pub symbol_range: Range,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum InterfaceElement {
     Const(Const),
     Method(Method),
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Item {
     Interface(Interface),
     Parcelable(Parcelable),
     Enum(Enum),
 }
 
-pub type ItemKey = PathBuf;
+pub type ItemKey = String;
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Interface {
     pub name: String,
     pub elements: Vec<InterfaceElement>,
@@ -75,7 +82,7 @@ pub struct Interface {
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Parcelable {
     pub name: String,
     pub members: Vec<Member>,
@@ -85,7 +92,7 @@ pub struct Parcelable {
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
@@ -94,7 +101,7 @@ pub struct Enum {
     pub full_range: Range,
     pub symbol_range: Range,
 }
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Const {
     pub name: String,
     pub const_type: Type,
@@ -105,7 +112,7 @@ pub struct Const {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Method {
     pub oneway: bool,
     pub name: String,
@@ -117,7 +124,7 @@ pub struct Method {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Arg {
     pub direction: Direction,
     pub name: Option<String>,
@@ -126,7 +133,7 @@ pub struct Arg {
     pub annotations: Vec<Annotation>,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Direction {
     In,
     Out,
@@ -140,7 +147,7 @@ impl Default for Direction {
     }
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Member {
     pub name: String,
     pub member_type: Type,
@@ -151,7 +158,7 @@ pub struct Member {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct EnumElement {
     pub name: String,
     pub value: Option<String>,
@@ -160,13 +167,13 @@ pub struct EnumElement {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Annotation {
     pub name: String,
     pub key_values: HashMap<String, Option<String>>,
 }
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum TypeKind {
     Primitive,
     Void,
@@ -178,7 +185,7 @@ pub enum TypeKind {
     Invalid,
 }
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Type {
     pub name: String,
     pub kind: TypeKind,

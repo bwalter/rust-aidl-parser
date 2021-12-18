@@ -1,0 +1,27 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Type(
+  name: "Map",
+  kind: Invalid,
+  generic_types: [
+    Type(
+      name: "String",
+      kind: String,
+      generic_types: [],
+      definition: None,
+      symbol_range: "...",
+    ),
+    Type(
+      name: "int",
+      kind: Primitive,
+      generic_types: [],
+      definition: None,
+      symbol_range: "...",
+    ),
+  ],
+  definition: None,
+  symbol_range: "...",
+)

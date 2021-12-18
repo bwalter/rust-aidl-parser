@@ -1,0 +1,20 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Const(
+  name: "CONST_NAME",
+  const_type: Type(
+    name: "int",
+    kind: Primitive,
+    generic_types: [],
+    definition: None,
+    symbol_range: "...",
+  ),
+  value: "123",
+  annotations: [],
+  doc: None,
+  symbol_range: "...",
+  full_range: "...",
+)
