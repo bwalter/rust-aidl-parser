@@ -213,7 +213,7 @@ fn check_imports(
             match map.entry(qualified_import.clone()) {
                 hash_map::Entry::Occupied(previous) => {
                     diagnostics.push(Diagnostic {
-                        kind: DiagnosticKind::Warning,
+                        kind: DiagnosticKind::Error,
                         range: import.symbol_range.clone(),
                         message: format!("Duplicated import: {}", qualified_import),
                         context_message: Some("duplicated import".to_owned()),

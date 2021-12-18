@@ -5,7 +5,7 @@ expression: "res[0].diagnostics"
 ---
 [
   Diagnostic(
-    kind: Warning,
+    kind: Error,
     range: "...",
     message: "Duplicated import: com.bwa.aidl_test.MyParcelable",
     context_message: Some("duplicated import"),
