@@ -3,29 +3,16 @@ use anyhow::Result;
 
 #[test]
 fn test_parse() -> Result<()> {
-    use aidl_parser::Parser;
-
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
-        import com.bwa.aidl_test.MyEnum;
         import com.bwa.aidl_test.MyParcelable;
+        import com.bwa.aidl_test.MyParcelable;
+        import com.bwa.aidl_test.NonExisting;
+        import com.bwa.aidl_test.UnusedEnum;
 
         interface MyInterface {
-            const int MY_CONST = 12;
-            /**
-             * Be polite and say hello
-             */
-            String hello(MyEnum e, MyParcelable);
-        }
-    "#;
-
-    let enum_aidl = r#"
-        package com.bwa.aidl_test;
-    
-        enum MyEnum {
-            VALUE1 = 1,
-            VALUE2 = 2,
+            String get_name(MyParcelable);
         }
     "#;
 
@@ -38,8 +25,17 @@ fn test_parse() -> Result<()> {
         }
     "#;
 
+    let enum_aidl = r#"
+        package com.bwa.aidl_test;
+    
+        enum UnusedEnum {
+            VALUE1 = 1,
+            VALUE2 = 2,
+        }
+    "#;
+
     // Parse AIDL files
-    let mut parser = Parser::new();
+    let mut parser = aidl_parser::Parser::new();
     parser.add_content(0, interface_aidl);
     parser.add_content(1, parcelable_aidl);
     parser.add_content(2, enum_aidl);
@@ -48,12 +44,7 @@ fn test_parse() -> Result<()> {
     // For each file, 1 result
     assert_eq!(res.len(), 3);
 
-    // No error/warning
-    assert!(res[0].diagnostics.is_empty());
-    assert!(res[1].diagnostics.is_empty());
-    assert!(res[2].diagnostics.is_empty());
-
-    // AIDL content
+    // Check AST
     use aidl_parser::ast;
     let ok = if let [ParseFileResult {
         file:
@@ -83,15 +74,26 @@ fn test_parse() -> Result<()> {
     {
         assert_eq!(interface.name, "MyInterface");
         assert_eq!(parcelable.name, "MyParcelable");
-        assert_eq!(enum_.name, "MyEnum");
+        assert_eq!(enum_.name, "UnusedEnum");
         true
     } else {
         false
     };
 
+    // Check diagnostics
+    assert_eq!(res[0].diagnostics.len(), 3);
+    assert!(res[0].diagnostics[0].message.contains("Duplicated import"));
+    assert!(res[0].diagnostics[1].message.contains("Unresolved import"));
+    assert!(res[0].diagnostics[2].message.contains("Unused import"));
+    assert!(res[1].diagnostics.is_empty());
+    assert!(res[2].diagnostics.is_empty());
+
     insta::assert_ron_snapshot!(res[0].file.as_ref().unwrap(), {
         ".**.symbol_range" => "...",
         ".**.full_range" => "...",
+    });
+    insta::assert_ron_snapshot!(res[0].diagnostics, {
+        ".**.range" => "...",
     });
 
     assert!(ok);

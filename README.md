@@ -30,26 +30,16 @@ TODO:
 ```rust
 #[test]
 fn test_parse() -> Result<()> {
-    use aidl_parser::{ast, Parser};
-    
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
-        import com.bwa.aidl_test.MyEnum;
         import com.bwa.aidl_test.MyParcelable;
+        import com.bwa.aidl_test.MyParcelable;
+        import com.bwa.aidl_test.NonExisting;
+        import com.bwa.aidl_test.UnusedEnum;
 
         interface MyInterface {
-            oneway void hello(MyEnum e);
             String get_name(MyParcelable);
-        }
-    "#;
-
-    let enum_aidl = r#"
-        package com.bwa.aidl_test;
-    
-        enum MyEnum {
-            VALUE1 = 1,
-            VALUE2 = 2,
         }
     "#;
 
@@ -62,8 +52,17 @@ fn test_parse() -> Result<()> {
         }
     "#;
 
+    let enum_aidl = r#"
+        package com.bwa.aidl_test;
+    
+        enum UnusedEnum {
+            VALUE1 = 1,
+            VALUE2 = 2,
+        }
+    "#;
+
     // Parse AIDL files
-    let mut parser = Parser::new();
+    let mut parser = aidl_parser::Parser::new();
     parser.add_content(0, interface_aidl);
     parser.add_content(1, parcelable_aidl);
     parser.add_content(2, enum_aidl);
@@ -72,28 +71,49 @@ fn test_parse() -> Result<()> {
     // For each file, 1 result
     assert_eq!(res.len(), 3);
 
-    // No error/warning
-    assert!(res[0].diagnostics.is_empty());
+    // Check AST
+    use aidl_parser::ast;
+    let ok = if let [ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Interface(interface @ ast::Interface { .. }),
+                ..
+            }),
+        ..
+    }, ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
+                ..
+            }),
+        ..
+    }, ParseFileResult {
+        file:
+            Some(ast::File {
+                package: ast::Package { .. },
+                item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
+                ..
+            }),
+        ..
+    }] = &res[..]
+    {
+        assert_eq!(interface.name, "MyInterface");
+        assert_eq!(parcelable.name, "MyParcelable");
+        assert_eq!(enum_.name, "UnusedEnum");
+        true
+    } else {
+        false
+    };
+
+    // Check diagnostics
+    assert_eq!(res[0].diagnostics.len(), 3);
+    assert!(res[0].diagnostics[0].message.contains("Duplicated import"));
+    assert!(res[0].diagnostics[1].message.contains("Unresolved import"));
+    assert!(res[0].diagnostics[2].message.contains("Unused import"));
     assert!(res[1].diagnostics.is_empty());
     assert!(res[2].diagnostics.is_empty());
-
-    // File items
-    let item0 = res[0].file.as_ref().unwrap().item;
-    if let ast::Item::Interface(ast::Interface { ref name, .. }) {
-        assert_eq!("name", "MyInterface");
-    }
-    assert!(matches!(
-        item0,
-        ast::Item::Interface(ast::Interface { ref name, .. }) if name == "MyInterface",
-    ));
-    assert!(matches!(
-        res[1].file.as_ref().unwrap().item,
-        ast::Item::Parcelable(ast::Parcelable { ref name, .. }) if name == "MyParcelable",
-    ));
-    assert!(matches!(
-        res[2].file.as_ref().unwrap().item,
-        ast::Item::Enum(ast::Enum { ref name, .. }) if name == "MyEnum",
-    ));
 
     Ok(())
 ```

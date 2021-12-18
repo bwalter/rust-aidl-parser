@@ -11,7 +11,7 @@ File(
   imports: [
     Import(
       path: "com.bwa.aidl_test",
-      name: "MyEnum",
+      name: "MyParcelable",
       symbol_range: "...",
     ),
     Import(
@@ -19,28 +19,23 @@ File(
       name: "MyParcelable",
       symbol_range: "...",
     ),
+    Import(
+      path: "com.bwa.aidl_test",
+      name: "NonExisting",
+      symbol_range: "...",
+    ),
+    Import(
+      path: "com.bwa.aidl_test",
+      name: "UnusedEnum",
+      symbol_range: "...",
+    ),
   ],
   item: Interface(Interface(
     name: "MyInterface",
     elements: [
-      Const(Const(
-        name: "MY_CONST",
-        const_type: Type(
-          name: "int",
-          kind: Primitive,
-          generic_types: [],
-          definition: None,
-          symbol_range: "...",
-        ),
-        value: "12",
-        annotations: [],
-        doc: None,
-        symbol_range: "...",
-        full_range: "...",
-      )),
       Method(Method(
         oneway: false,
-        name: "hello",
+        name: "get_name",
         return_type: Type(
           name: "String",
           kind: String,
@@ -49,19 +44,6 @@ File(
           symbol_range: "...",
         ),
         args: [
-          Arg(
-            direction: Unspecified,
-            name: Some("e"),
-            arg_type: Type(
-              name: "MyEnum",
-              kind: Custom,
-              generic_types: [],
-              definition: Some("com.bwa.aidl_test.MyEnum"),
-              symbol_range: "...",
-            ),
-            doc: None,
-            annotations: [],
-          ),
           Arg(
             direction: Unspecified,
             name: None,
@@ -77,7 +59,7 @@ File(
           ),
         ],
         annotations: [],
-        doc: Some("Be polite and say hello"),
+        doc: None,
         symbol_range: "...",
         full_range: "...",
       )),

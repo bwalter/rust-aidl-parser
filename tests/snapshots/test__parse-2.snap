@@ -1,0 +1,36 @@
+---
+source: tests/test.rs
+expression: "res[0].diagnostics"
+
+---
+[
+  Diagnostic(
+    kind: Warning,
+    range: "...",
+    message: "Duplicated import: com.bwa.aidl_test.MyParcelable",
+    context_message: Some("duplicated import"),
+    hint: None,
+    related_infos: [
+      RelatedInfo(
+        range: "...",
+        message: "previous location",
+      ),
+    ],
+  ),
+  Diagnostic(
+    kind: Error,
+    range: "...",
+    message: "Unresolved import `NonExisting`",
+    context_message: Some("unresolved import"),
+    hint: None,
+    related_infos: [],
+  ),
+  Diagnostic(
+    kind: Warning,
+    range: "...",
+    message: "Unused import `UnusedEnum`",
+    context_message: Some("unused import"),
+    hint: None,
+    related_infos: [],
+  ),
+]

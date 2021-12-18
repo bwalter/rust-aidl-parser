@@ -110,6 +110,9 @@ where
                 check_types(&mut file, &mut fr.diagnostics);
                 check_imports(&file.imports, &resolved, &keys, &mut fr.diagnostics);
 
+                // Sort diagnostics by line
+                fr.diagnostics.sort_by_key(|d| d.range.start.line_col.0);
+
                 ParseFileResult {
                     file: Some(file),
                     ..fr
@@ -233,17 +236,16 @@ fn check_imports(
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Error,
                 range: import.symbol_range.clone(),
-                message: "Unresolved import".to_owned(),
+                message: format!("Unresolved import `{}`", import.name),
                 context_message: Some("unresolved import".to_owned()),
                 hint: None,
                 related_infos: Vec::new(),
             });
-        }
-        if !resolved.contains(&qualified_import) {
+        } else if !resolved.contains(&qualified_import) {
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
                 range: import.symbol_range.clone(),
-                message: format!("Unused import: `{}`", import.name),
+                message: format!("Unused import `{}`", import.name),
                 context_message: Some("unused import".to_owned()),
                 hint: None,
                 related_infos: Vec::new(),
