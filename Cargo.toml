@@ -1,7 +1,11 @@
 [package]
 name = "aidl-parser"
 version = "0.1.0"
+authors = ["Benoit Walter <b.walter@meerun.de>"]
+license = "MIT"
 edition = "2021"
+description = "Parse AIDL files, crate AST and diagnostics"
+repository = "https://github.com/bwalter/rust-aidl-parser"
 build = "src/build.rs"
 
 [dependencies]
@@ -11,10 +15,6 @@ line-col = { version = "0.2", features = ["grapheme-clusters"] }
 regex = "1.5"
 serde = "1.0"
 serde_derive = "1.0"
-serde_json = "1.0"
-thiserror = "1.0"
-tracing = "0.1"
-tracing-subscriber = "0.3"
 
 [build-dependencies]
 lalrpop = "0.19"

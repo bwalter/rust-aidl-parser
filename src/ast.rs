@@ -14,9 +14,21 @@ pub struct File {
     pub item: Item,
 }
 
+pub type ItemKey = String;
+pub type ItemKeyRef<'a> = &'a str;
+
+impl File {
+    // TODO: cache it
+    pub fn get_key(&self) -> ItemKey {
+        format!("{}.{}", self.package.name, self.item.get_name())
+    }
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Position {
     pub offset: usize,
+
+    /// 1-based line and column
     pub line_col: (usize, usize),
 }
 
@@ -57,10 +69,33 @@ pub struct Import {
     pub symbol_range: Range,
 }
 
+impl Import {
+    // TODO: cache it?
+    pub fn get_qualified_name(&self) -> String {
+        format!("{}.{}", self.path, self.name)
+    }
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum InterfaceElement {
     Const(Const),
     Method(Method),
+}
+
+impl InterfaceElement {
+    pub fn get_name(&self) -> &str {
+        match self {
+            InterfaceElement::Const(c) => &c.name,
+            InterfaceElement::Method(m) => &m.name,
+        }
+    }
+
+    pub fn get_symbol_range(&self) -> &Range {
+        match self {
+            InterfaceElement::Const(c) => &c.symbol_range,
+            InterfaceElement::Method(m) => &m.symbol_range,
+        }
+    }
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -70,7 +105,31 @@ pub enum Item {
     Enum(Enum),
 }
 
-pub type ItemKey = String;
+impl Item {
+    pub fn get_name(&self) -> &str {
+        match self {
+            Item::Interface(i) => &i.name,
+            Item::Parcelable(p) => &p.name,
+            Item::Enum(e) => &e.name,
+        }
+    }
+
+    pub fn get_symbol_range(&self) -> &Range {
+        match self {
+            Item::Interface(i) => &i.symbol_range,
+            Item::Parcelable(p) => &p.symbol_range,
+            Item::Enum(e) => &e.symbol_range,
+        }
+    }
+
+    pub fn get_full_range(&self) -> &Range {
+        match self {
+            Item::Interface(i) => &i.full_range,
+            Item::Parcelable(p) => &p.full_range,
+            Item::Enum(e) => &e.full_range,
+        }
+    }
+}
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Interface {
@@ -119,9 +178,25 @@ pub struct Method {
     pub return_type: Type,
     pub args: Vec<Arg>,
     pub annotations: Vec<Annotation>,
+    pub value: Option<u32>,
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
+}
+
+impl Method {
+    pub fn get_signature(&self) -> String {
+        format!(
+            "{} {}({})",
+            self.return_type.name,
+            self.name,
+            self.args
+                .iter()
+                .map(|a| a.arg_type.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -156,6 +231,12 @@ pub struct Member {
     pub doc: Option<String>,
     pub annotations: Vec<Annotation>,
     pub full_range: Range,
+}
+
+impl Member {
+    pub fn get_signature(&self) -> String {
+        format!("{} {}", self.member_type.name, self.name,)
+    }
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]

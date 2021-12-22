@@ -370,6 +370,27 @@ mod tests {
     }
 
     #[test]
+    fn test_method_with_invalid_value() -> Result<()> {
+        let input = "TypeName myMethod() = 1234567891234567;";
+        let mut diagnostics = Vec::new();
+        assert_parser!(input, rules::aidl::MethodParser::new(), &mut diagnostics);
+        assert_diagnostics!(diagnostics, @r###"
+        [
+          Diagnostic(
+            kind: Error,
+            range: "...",
+            message: "Invalid method value: number too large to fit in target type",
+            context_message: None,
+            hint: None,
+            related_infos: [],
+          ),
+        ]
+        "###);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_method_with_annotation() -> Result<()> {
         let input = "@AnnotationName void myMethod();";
         assert_parser!(input, rules::aidl::MethodParser::new());

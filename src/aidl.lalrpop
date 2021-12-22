@@ -19,7 +19,7 @@ pub OptFile: Option<ast::File> = {
 
 // e.g. package x.y.z;
 pub(crate) Package: ast::Package = {
-    PACKAGE <p1:@L> <name:QualifiedName> ";" <p2:@R> => {
+    PACKAGE <p1:@L> <name:QualifiedName> <p2:@R> ";" => {
         ast::Package {
             name,
             symbol_range: ast::Range::new(lookup, p1, p2),
@@ -29,7 +29,7 @@ pub(crate) Package: ast::Package = {
 
 // e.g. import x.y.z;
 pub(crate) Import: ast::Import = {
-    IMPORT <p1:@L> <v:(<IDENT> ".")+> <n:IDENT> ";" <p2:@R> => {
+    IMPORT <p1:@L> <v:(<IDENT> ".")+> <n:IDENT> <p2:@R> ";" => {
         ast::Import {
             path: v.join("."),
             name: n.to_owned(),
@@ -160,8 +160,8 @@ pub(crate) Method: ast::Method = {
     <fp1:@L> <oneway:ONEWAY?> <rt:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     "(" <args:CommaSeparated<Arg>> ")"
-    ("=" NUMBER)?  // TODO: only [0-9]+
-    ";" <fp2:@R> => {
+    <vp1:@L> <v:("=" <NUMBER>)?> <vp2:@R>  // TODO: only [0-9]+
+    <fp2:@R> ";" => {
         ast::Method {
             oneway: oneway.is_some(),
             name: n.to_owned(),
@@ -169,6 +169,21 @@ pub(crate) Method: ast::Method = {
             args,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
+            value: match v.map(str::parse) {
+                Some(Ok(v)) => Some(v),
+                Some(Err(e)) => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        range: ast::Range::new(&lookup, vp1 + 2, vp2),
+                        message: format!("Invalid method value: {}", e),
+                        context_message: None,
+                        hint: None,
+                        related_infos: Vec::new(),
+                    });
+                    None
+                },
+                None => None,
+            },
             full_range: ast::Range::new(&lookup, fp1, fp2),
             symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }
@@ -211,7 +226,7 @@ pub(crate) Const: ast::Const = {
     <fp1:@L> CONST <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     "=" <v:Value>
-    ";" <fp2:@R> => {
+    <fp2:@R> ";" => {
         ast::Const {
             name: n.to_owned(),
             const_type: t,
@@ -231,7 +246,7 @@ pub(crate) Member: ast::Member = {
     <fp1:@L> <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     <v:("=" <Value>)?>
-    ";" <fp2:@R> => {
+    <fp2:@R> ";" => {
         ast::Member {
             name: n.to_owned(),
             member_type: t,

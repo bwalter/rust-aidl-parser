@@ -7,7 +7,7 @@ expression: "res[0].diagnostics"
   Diagnostic(
     kind: Error,
     range: "...",
-    message: "Duplicated import: com.bwa.aidl_test.MyParcelable",
+    message: "Duplicated import `com.bwa.aidl_test.MyParcelable`",
     context_message: Some("duplicated import"),
     hint: None,
     related_infos: [

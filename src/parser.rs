@@ -14,6 +14,8 @@ use crate::{ast, diagnostic::DiagnosticKind};
 /// Parser::add_content() or Parser::add_file(). Once all the files
 /// have been added, call Parser::parser() to trigger the validation
 /// and access the results.
+/// It is also possible to replace or remote a content with a given
+/// ID and re-trigger the parsing.
 ///
 /// Example:
 /// ```
@@ -27,23 +29,38 @@ use crate::{ast, diagnostic::DiagnosticKind};
 /// parser.add_content(3, "<content of AIDL file #3>");
 ///
 /// // Parse and get results
-/// let results: Vec<ParseFileResult<_>> = parser.parse();
+/// let results = parser.parse();
 ///
 /// assert_eq!(results.len(), 3);
-/// assert_eq!(results[0].id, 1);
-/// assert_eq!(results[1].id, 2);
-/// assert_eq!(results[2].id, 3);
+/// assert!(results.contains_key(&1));
+/// assert!(results.contains_key(&2));
+/// assert!(results.contains_key(&3));
+///
+/// // Add/replace/remote files
+/// parser.add_content(2, "<updated content of AIDL file #2>");
+/// parser.add_content(4, "<content of AIDL file #4>");
+/// parser.add_content(5, "<content of AIDL file #5>");
+/// parser.remove_content(1);
+///
+/// // Parse again and get updated results
+/// let results = parser.parse();
+///
+/// assert_eq!(results.len(), 4);
+/// assert!(results.contains_key(&2));
+/// assert!(results.contains_key(&3));
+/// assert!(results.contains_key(&4));
+/// assert!(results.contains_key(&5));
 /// ```
 pub struct Parser<ID>
 where
     ID: Eq + Hash + Clone + Debug,
 {
-    file_results: Vec<ParseFileResult<ID>>,
+    lalrpop_results: HashMap<ID, ParseFileResult<ID>>,
 }
 
 /// The parse result of 1 file with its corresponding ID as given via
 /// Parser::add_content() or Parser::add_file().
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParseFileResult<ID>
 where
     ID: Eq + Hash + Clone + Debug,
@@ -60,7 +77,7 @@ where
     /// Create a new, empty parser
     pub fn new() -> Self {
         Parser {
-            file_results: Vec::new(),
+            lalrpop_results: HashMap::new(),
         }
     }
 
@@ -72,9 +89,9 @@ where
         let rule_result =
             rules::aidl::OptFileParser::new().parse(&lookup, &mut diagnostics, content);
 
-        let file_result = match rule_result {
+        let lalrpop_result = match rule_result {
             Ok(file) => ParseFileResult {
-                id,
+                id: id.clone(),
                 file,
                 diagnostics,
             },
@@ -85,25 +102,31 @@ where
                 }
 
                 ParseFileResult {
-                    id,
+                    id: id.clone(),
                     file: None,
                     diagnostics,
                 }
             }
         };
 
-        self.file_results.push(file_result);
+        self.lalrpop_results.insert(id, lalrpop_result);
     }
 
-    pub fn parse(self) -> Vec<ParseFileResult<ID>> {
+    /// Remote the file with the given key
+    pub fn remove_content(&mut self, id: ID) {
+        self.lalrpop_results.remove(&id);
+    }
+
+    pub fn parse(&self) -> HashMap<ID, ParseFileResult<ID>> {
         let keys = self.collect_item_keys();
 
-        self.file_results
+        self.lalrpop_results
+            .clone()
             .into_iter()
-            .map(|mut fr| {
+            .map(|(id, mut fr)| {
                 let mut file = match fr.file {
                     Some(f) => f,
-                    None => return ParseFileResult { file: None, ..fr },
+                    None => return (id, ParseFileResult { file: None, ..fr }),
                 };
 
                 let resolved = resolve_types(&mut file, &mut fr.diagnostics);
@@ -113,27 +136,23 @@ where
                 // Sort diagnostics by line
                 fr.diagnostics.sort_by_key(|d| d.range.start.line_col.0);
 
-                ParseFileResult {
-                    file: Some(file),
-                    ..fr
-                }
+                (
+                    id,
+                    ParseFileResult {
+                        file: Some(file),
+                        ..fr
+                    },
+                )
             })
             .collect()
     }
 
-    fn collect_item_keys(&self) -> HashSet<String> {
-        self.file_results
+    fn collect_item_keys(&self) -> HashSet<ast::ItemKey> {
+        self.lalrpop_results
             .iter()
-            .map(|f| &f.file)
+            .map(|(_, fr)| &fr.file)
             .flatten()
-            .map(|f| {
-                let item_name = match &f.item {
-                    ast::Item::Interface(i) => i.name.clone(),
-                    ast::Item::Parcelable(p) => p.name.clone(),
-                    ast::Item::Enum(e) => e.name.clone(),
-                };
-                format!("{}.{}", f.package.name, item_name)
-            })
+            .map(|f| f.get_key())
             .collect()
     }
 }
@@ -171,7 +190,7 @@ fn resolve_types(file: &mut ast::File, diagnostics: &mut Vec<Diagnostic>) -> Has
     let imports: Vec<String> = file
         .imports
         .iter()
-        .map(|i| format!("{}.{}", i.path, i.name))
+        .map(|i| i.get_qualified_name())
         .collect();
 
     let mut resolved = HashSet::new();
@@ -188,7 +207,7 @@ fn resolve_types(file: &mut ast::File, diagnostics: &mut Vec<Diagnostic>) -> Has
                 diagnostics.push(Diagnostic {
                     kind: DiagnosticKind::Error,
                     range: type_.symbol_range.clone(),
-                    message: format!("Unknown type: {}", type_.name),
+                    message: format!("Unknown type `{}`", type_.name),
                     context_message: Some("unknown type".to_owned()),
                     hint: None,
                     related_infos: Vec::new(),
@@ -209,13 +228,12 @@ fn check_imports(
     // array of Import -> map of "qualified name" -> Import
     let imports: HashMap<String, &ast::Import> =
         imports.iter().fold(HashMap::new(), |mut map, import| {
-            let qualified_import = format!("{}.{}", import.path, import.name);
-            match map.entry(qualified_import.clone()) {
+            match map.entry(import.get_qualified_name()) {
                 hash_map::Entry::Occupied(previous) => {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         range: import.symbol_range.clone(),
-                        message: format!("Duplicated import: {}", qualified_import),
+                        message: format!("Duplicated import `{}`", import.get_qualified_name()),
                         context_message: Some("duplicated import".to_owned()),
                         hint: None,
                         related_infos: Vec::from([RelatedInfo {
@@ -341,9 +359,9 @@ mod test {
         assert_eq!(res.len(), 3);
 
         // No error/warning
-        println!("...\nDiagnostics 1:\n{:#?}", res[0].diagnostics);
-        println!("...\nDiagnostics 2:\n{:#?}", res[1].diagnostics);
-        println!("...\nDiagnostics 3:\n{:#?}", res[2].diagnostics);
+        println!("...\nDiagnostics 1:\n{:#?}", res[&0].diagnostics);
+        println!("...\nDiagnostics 2:\n{:#?}", res[&1].diagnostics);
+        println!("...\nDiagnostics 3:\n{:#?}", res[&2].diagnostics);
 
         Ok(())
     }

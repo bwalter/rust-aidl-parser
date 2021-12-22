@@ -15,6 +15,7 @@ Method(
   ),
   args: [],
   annotations: [],
+  value: Some(123),
   doc: None,
   symbol_range: "...",
   full_range: "...",

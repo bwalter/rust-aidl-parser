@@ -59,6 +59,7 @@ File(
           ),
         ],
         annotations: [],
+        value: None,
         doc: None,
         symbol_range: "...",
         full_range: "...",

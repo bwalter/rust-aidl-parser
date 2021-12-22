@@ -17,13 +17,13 @@ TODO:
 - Parcelable declaration(= forward declaration), with optional annotations
 - Allow annotations for list/map parameters?
 - Android types: android.os.Parcelable, IBinder, FileDescriptor, ParcelFileDescriptor, 
+- Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - validate:
   - direction (based on Object), required for all non-primitive parameters, other restrictions regarding in
   - duplicated methods
   - unused/duplicated imports
   - oneway only for void
-
-
+  - duplicated method values
 
 ## Example
 

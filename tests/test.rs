@@ -46,57 +46,47 @@ fn test_parse() -> Result<()> {
 
     // Check AST
     use aidl_parser::ast;
-    let ok = if let [ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Interface(interface @ ast::Interface { .. }),
-                ..
-            }),
+    assert!(matches!(res.get(&0), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Interface(interface @ ast::Interface { .. }),
+            ..
+        }),
         ..
-    }, ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
-                ..
-            }),
+    }) if interface.name == "MyInterface"));
+    assert!(matches!(res.get(&1), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
+            ..
+        }),
         ..
-    }, ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
-                ..
-            }),
+    }) if parcelable.name == "MyParcelable"));
+    assert!(matches!(res.get(&2), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
+            ..
+        }),
         ..
-    }] = &res[..]
-    {
-        assert_eq!(interface.name, "MyInterface");
-        assert_eq!(parcelable.name, "MyParcelable");
-        assert_eq!(enum_.name, "UnusedEnum");
-        true
-    } else {
-        false
-    };
+    }) if enum_.name == "UnusedEnum"));
 
     // Check diagnostics
-    assert_eq!(res[0].diagnostics.len(), 3);
-    assert!(res[0].diagnostics[0].message.contains("Duplicated import"));
-    assert!(res[0].diagnostics[1].message.contains("Unresolved import"));
-    assert!(res[0].diagnostics[2].message.contains("Unused import"));
-    assert!(res[1].diagnostics.is_empty());
-    assert!(res[2].diagnostics.is_empty());
+    assert_eq!(res[&0].diagnostics.len(), 3);
+    assert!(res[&0].diagnostics[0].message.contains("Duplicated import"));
+    assert!(res[&0].diagnostics[1].message.contains("Unresolved import"));
+    assert!(res[&0].diagnostics[2].message.contains("Unused import"));
+    assert!(res[&1].diagnostics.is_empty());
+    assert!(res[&2].diagnostics.is_empty());
 
-    insta::assert_ron_snapshot!(res[0].file.as_ref().unwrap(), {
+    insta::assert_ron_snapshot!(res[&0].file.as_ref().unwrap(), {
         ".**.symbol_range" => "...",
         ".**.full_range" => "...",
     });
-    insta::assert_ron_snapshot!(res[0].diagnostics, {
+    insta::assert_ron_snapshot!(res[&0].diagnostics, {
         ".**.range" => "...",
     });
 
-    assert!(ok);
     Ok(())
 }
 
@@ -105,13 +95,13 @@ fn test_parse_error() -> Result<()> {
     let aidl = "package x.y.z; completly wrong item {}";
 
     let mut parser = aidl_parser::Parser::new();
-    parser.add_content((), aidl);
+    parser.add_content(0, aidl);
     let parse_results = parser.parse();
 
     assert_eq!(parse_results.len(), 1);
-    assert!(parse_results[0].file.is_none());
+    assert!(parse_results[&0].file.is_none());
 
-    insta::assert_ron_snapshot!(parse_results[0].diagnostics, @r###"
+    insta::assert_ron_snapshot!(parse_results[&0].diagnostics, @r###"
     [
       Diagnostic(
         kind: Error,
