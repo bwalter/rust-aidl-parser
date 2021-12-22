@@ -1,6 +1,6 @@
 [package]
 name = "aidl-parser"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Benoit Walter <b.walter@meerun.de>"]
 license = "MIT"
 edition = "2021"
@@ -25,7 +25,6 @@ insta = { version = "1.8", features = ["redactions", "ron"] }
 
 [package.metadata.release]
 pre-release-replacements = [
-  {file="README.md", search="Current release: [a-z0-9\\.-]+", replace="Current release: {{version}}"} ,
   {file="CHANGELOG.md", search="Unreleased", replace="{{version}}", min=1},
   {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}", min=1},
   {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate\n", exactly=1},
