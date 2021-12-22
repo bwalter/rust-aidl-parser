@@ -6,6 +6,7 @@ AIDL parser for Rust.
 
 - Generate AIDL AST with all supported elements (including Javadoc)
 - Recover errors
+- Validate project
 - Provide diagnostics (errors and warnings) with location
 
 TODO:
@@ -73,47 +74,38 @@ fn test_parse() -> Result<()> {
 
     // Check AST
     use aidl_parser::ast;
-    let ok = if let [ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Interface(interface @ ast::Interface { .. }),
-                ..
-            }),
+    assert!(matches!(res.get(&0), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Interface(interface @ ast::Interface { .. }),
+            ..
+        }),
         ..
-    }, ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
-                ..
-            }),
+    }) if interface.name == "MyInterface"));
+    assert!(matches!(res.get(&1), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
+            ..
+        }),
         ..
-    }, ParseFileResult {
-        file:
-            Some(ast::File {
-                package: ast::Package { .. },
-                item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
-                ..
-            }),
+    }) if parcelable.name == "MyParcelable"));
+    assert!(matches!(res.get(&2), Some(ParseFileResult {
+        file: Some(ast::File {
+            package: ast::Package { .. },
+            item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
+            ..
+        }),
         ..
-    }] = &res[..]
-    {
-        assert_eq!(interface.name, "MyInterface");
-        assert_eq!(parcelable.name, "MyParcelable");
-        assert_eq!(enum_.name, "UnusedEnum");
-        true
-    } else {
-        false
-    };
+    }) if enum_.name == "UnusedEnum"));
 
     // Check diagnostics
-    assert_eq!(res[0].diagnostics.len(), 3);
-    assert!(res[0].diagnostics[0].message.contains("Duplicated import"));
-    assert!(res[0].diagnostics[1].message.contains("Unresolved import"));
-    assert!(res[0].diagnostics[2].message.contains("Unused import"));
-    assert!(res[1].diagnostics.is_empty());
-    assert!(res[2].diagnostics.is_empty());
+    assert_eq!(res[&0].diagnostics.len(), 3);
+    assert!(res[&0].diagnostics[0].message.contains("Duplicated import"));
+    assert!(res[&0].diagnostics[1].message.contains("Unresolved import"));
+    assert!(res[&0].diagnostics[2].message.contains("Unused import"));
+    assert!(res[&1].diagnostics.is_empty());
+    assert!(res[&2].diagnostics.is_empty());
 
     Ok(())
 ```
@@ -121,4 +113,3 @@ fn test_parse() -> Result<()> {
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
-
