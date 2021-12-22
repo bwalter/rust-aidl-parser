@@ -26,6 +26,15 @@ TODO:
   - oneway only for void
   - duplicated method values
 
+## Usage
+
+Add to `Cargo.toml`:
+
+```toml
+[dependencies]
+aidl-parser = "0.1.0"
+```
+
 ## Example
 
 ```rust
