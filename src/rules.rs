@@ -299,7 +299,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid enum element - Unrecognized token `=`\nExpected one of \"{\", BOOLEAN or QUOTED_STRING",
+            message: "Invalid enum element - Unrecognized token `=`\nExpected one of \"{\", BOOLEAN, FLOAT or QUOTED_STRING",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_method_with_invalid_value() -> Result<()> {
-        let input = "TypeName myMethod() = 1234567891234567;";
+        let input = "TypeName myMethod() = 12.3;";
         let mut diagnostics = Vec::new();
         assert_parser!(input, rules::aidl::MethodParser::new(), &mut diagnostics);
         assert_diagnostics!(diagnostics, @r###"
@@ -607,6 +607,29 @@ mod tests {
 
         // Invalid strings
         for input in ["\"\"\""].into_iter() {
+            assert!(rules::aidl::ValueParser::new()
+                .parse(&lookup(input), &mut Vec::new(), input)
+                .is_err());
+        }
+
+        // Empty objects
+        for input in ["{}", "{ }", "{      }"].into_iter() {
+            assert_eq!(
+                rules::aidl::ValueParser::new().parse(&lookup(input), &mut Vec::new(), input)?,
+                "{}"
+            );
+        }
+
+        // Non-empty objects
+        for input in ["{\"hello{<\"}", "{1}", "{1, 2}", "{1, 2, 3, }"].into_iter() {
+            assert_eq!(
+                rules::aidl::ValueParser::new().parse(&lookup(input), &mut Vec::new(), input)?,
+                "{...}"
+            );
+        }
+
+        // Invalid objects
+        for input in ["{\"hello{<\"", "{1sfewf}", "{1, 2, 3,, }"].into_iter() {
             assert!(rules::aidl::ValueParser::new()
                 .parse(&lookup(input), &mut Vec::new(), input)
                 .is_err());

@@ -160,7 +160,7 @@ pub(crate) Method: ast::Method = {
     <fp1:@L> <oneway:ONEWAY?> <rt:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     "(" <args:CommaSeparated<Arg>> ")"
-    <vp1:@L> <v:("=" <NUMBER>)?> <vp2:@R>  // TODO: only [0-9]+
+    <vp1:@L> <v:("=" <INTEGER>)?> <vp2:@R>  // TODO: only [0-9]+
     <fp2:@R> ";" => {
         ast::Method {
             oneway: oneway.is_some(),
@@ -354,10 +354,12 @@ AnnotationParam: (String, Option<String>) = {
 }
 
 pub(crate) Value: &'input str = {
-    NUMBER,
+    INTEGER,
+    FLOAT,
     QUOTED_STRING,
     BOOLEAN,
     "{" "}" => "{}",
+    "{" Value+ ("," <Value>)* ","? "}" => "{...}",
 }
 
 // Comma separated list with optional trailing comma
@@ -401,11 +403,9 @@ match {
     // Signs
     ";",  ",", "{", "}", "(", ")", "[", "]", "<", ">", "=", ".", "-",
 } else {
-    // Other
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENT,
-    r"[+-]?(\d*\.)?\d+[f]?" => NUMBER,
 } else {
-    r"[0-9]" => DIGIT,
+    r"[0-9]+" => INTEGER,
 } else {
-    //r"[^;]*;" => ANY_INTERFACE_ELEMENT,  // TODO
+    r"[+-]?(\d*\.)?\d+[f]?" => FLOAT,
 }
