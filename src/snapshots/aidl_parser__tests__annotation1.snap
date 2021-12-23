@@ -1,9 +1,0 @@
----
-source: src/lib.rs
-expression: res
-
----
-Some(Annotation(
-  name: "@AnnotationName",
-  key_values: {},
-))

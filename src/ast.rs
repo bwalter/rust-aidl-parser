@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{collections::HashMap, path::PathBuf};
 
 use serde_derive::Serialize;
@@ -99,6 +100,13 @@ impl InterfaceElement {
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
+pub enum ItemKind {
+    Interface,
+    Parcelable,
+    Enum,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Item {
     Interface(Interface),
     Parcelable(Parcelable),
@@ -106,6 +114,14 @@ pub enum Item {
 }
 
 impl Item {
+    pub fn get_kind(&self) -> ItemKind {
+        match self {
+            Item::Interface(_) => ItemKind::Interface,
+            Item::Parcelable(_) => ItemKind::Parcelable,
+            Item::Enum(_) => ItemKind::Enum,
+        }
+    }
+
     pub fn get_name(&self) -> &str {
         match self {
             Item::Interface(i) => &i.name,
@@ -210,15 +226,26 @@ pub struct Arg {
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Direction {
-    In,
-    Out,
-    InOut,
+    In(Range),
+    Out(Range),
+    InOut(Range),
     Unspecified,
 }
 
 impl Default for Direction {
     fn default() -> Self {
         Direction::Unspecified
+    }
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Direction::In(_) => write!(f, "in"),
+            Direction::Out(_) => write!(f, "out"),
+            Direction::InOut(_) => write!(f, "inout"),
+            Direction::Unspecified => Ok(()),
+        }
     }
 }
 
@@ -321,7 +348,7 @@ impl Type {
     ) -> Self {
         Type {
             name: "Map".to_owned(),
-            kind: TypeKind::List,
+            kind: TypeKind::Map,
             generic_types: Vec::from([key_param, value_param]),
             definition: None,
             symbol_range: Range::new(lookup, start, end),

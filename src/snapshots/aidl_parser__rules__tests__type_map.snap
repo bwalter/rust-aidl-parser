@@ -5,7 +5,7 @@ expression: res
 ---
 Type(
   name: "Map",
-  kind: List,
+  kind: Map,
   generic_types: [
     Type(
       name: "Key",

@@ -208,11 +208,11 @@ pub(crate) Arg: ast::Arg = {
 
 // Arg direction (in, out or inout)
 Direction: ast::Direction = {
-    <d:DIRECTION?> => {
+    <p1:@L> <d:DIRECTION?> <p2:@R> => {
         match d {
-            Some("in") => ast::Direction::In,
-            Some("out") => ast::Direction::Out,
-            Some("inout") => ast::Direction::InOut,
+            Some("in") => ast::Direction::In(ast::Range::new(&lookup, p1, p2)),
+            Some("out") => ast::Direction::Out(ast::Range::new(&lookup, p1, p2)),
+            Some("inout") => ast::Direction::InOut(ast::Range::new(&lookup, p1, p2)),
             None => ast::Direction::Unspecified,
             _ => unreachable!(),
         }
@@ -303,124 +303,23 @@ TypeString: ast::Type = {
 }
 
 TypeArray: ast::Type = {
-    <p1:@L> <pp1:@L> <p:TypeArrayParameterValid> <pp2:@R> "[" "]" <p2:@L> => {
+    <p1:@L> <pp1:@L> <p:Type> <pp2:@R> "[" "]" <p2:@L> => {
         ast::Type::array(p, &lookup, p1, p2)
     },
-    <p1:@L> <pp1:@L> <p:TypeArrayParameterInvalid> "[" "]" <pp2:@R> <p2:@L> => {
-        diagnostics.push(Diagnostic {
-            kind: DiagnosticKind::Error,
-            message: format!("Invalid array parameter: `{}`", p.name),
-            context_message: Some("invalid parameter".to_owned()),
-            range: ast::Range::new(&lookup, pp1, pp2),
-            hint: Some("must be a primitive or an enum".to_owned()),
-            related_infos: Vec::new(),
-        });
-
-        ast::Type::invalid_with_generics("Array", &[p], &lookup, p1, p2)
-    },
-}
-
-// Types which can be used as an array (primitives)
-//
-// Note: as we don't know at this point if TypeCustom is an object (interface, parcelable)
-// or a primitive (enum), we consider it to be valid.
-TypeArrayParameterValid = {
-    TypePrimitive,
-    TypeCustom,
-}
-
-// Types which cannot be used as an array (non-primitives)
-TypeArrayParameterInvalid = {
-    TypeVoid,
-    TypeString,
-    TypeArray,
-    TypeList,
-    TypeMap,
 }
 
 TypeList: ast::Type = {
-    <p1:@L> LIST "<" <p:TypeCollectionParameterValid> ">" <p2:@R> => {
+    <p1:@L> LIST "<" <p:Type> ">" <p2:@R> => {
         ast::Type::list(p, &lookup, p1, p2)
-    },
-    <p1:@L> LIST "<" <pp1:@L> <p:TypeCollectionParameterInvalid> <pp2:@R> ">" <p2:@R> => {
-        diagnostics.push(Diagnostic {
-            kind: DiagnosticKind::Error,
-            message: format!("Invalid list parameter: `{}`", p.name),
-            context_message: Some("invalid parameter".to_owned()),
-            range: ast::Range::new(&lookup, pp1, pp2),
-            hint: Some("must be an object".to_owned()),
-            related_infos: Vec::new(),
-        });
-        ast::Type::invalid_with_generics("List", &[p], &lookup, p1, p2)
     },
 }
 
-// Parse Map and return TypeKind::Invalid if the parameters are not correct
 TypeMap: ast::Type = {
     <p1:@L> MAP "<"
-        <k:TypeCollectionParameterValid> "," <v:TypeCollectionParameterValid>
+        <k:Type> "," <v:Type>
     ">" <p2:@R> => {
         ast::Type::map(k, v, &lookup, p1, p2)
     },
-    <p1:@L> MAP "<"
-        <kp1:@L> <k:TypeCollectionParameterInvalid> <kp2:@R> ","
-        <v:TypeCollectionParameterValid>
-    ">"  <p2:@R> => {
-        diagnostics.push(Diagnostic {
-            kind: DiagnosticKind::Error,
-            message: format!("Invalid map key: {}", k.name),
-            context_message: Some("invalid key".to_owned()),
-            range: ast::Range::new(&lookup, kp1, kp2),
-            hint: Some("key must be an object".to_owned()),
-            related_infos: Vec::new(),
-        });
-        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
-    },
-    <p1:@L> MAP "<" <pp1:@L>
-        <k:TypeCollectionParameterInvalid> "," <v:TypeCollectionParameterInvalid>
-    <pp2:@R> ">" <p2:@R> => {
-        diagnostics.push(Diagnostic {
-            kind: DiagnosticKind::Error,
-            message: format!("Invalid map parameters: {}, {}", k.name, v.name),
-            context_message: Some("invalid parameters".to_owned()),
-            range: ast::Range::new(&lookup, pp1, pp2),
-            hint: Some("key and value must be objects".to_owned()),
-            related_infos: Vec::new(),
-        });
-        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
-    },
-    <p1:@L> MAP "<"
-        <k:TypeCollectionParameterValid> ","
-        <vp1:@L> <v:TypeCollectionParameterInvalid> <vp2:@R>
-    ">" <p2:@R> => {
-        diagnostics.push(Diagnostic {
-            kind: DiagnosticKind::Error,
-            message: format!("Invalid map value: {}", v.name),
-            context_message: Some("invalid value".to_owned()),
-            range: ast::Range::new(&lookup, vp1, vp2),
-            hint: Some("value must be an object".to_owned()),
-            related_infos: Vec::new(),
-        });
-        ast::Type::invalid_with_generics("Map", &[k, v], &lookup, p1, p2)
-    },
-}
-
-// Types which can be used as a List or Map generic parameter (objects)
-//
-// Note: as we don't know at this point if TypeCustom is an object (interface, parcelable)
-// or a primitive (enum), we consider it to be valid.
-TypeCollectionParameterValid = {
-    TypeString,
-    TypeList,
-    TypeMap,
-    TypeCustom,
-}
-
-// Types which cannot be used as a List or Map generic parameter (non-objects)
-TypeCollectionParameterInvalid = {
-    TypeVoid,
-    TypePrimitive,
-    TypeArray,
 }
 
 // Unresolved custom type (should be an interface, a parcelable or an enum)
@@ -487,7 +386,7 @@ match {
     "oneway" => ONEWAY,
     "const" => CONST,
     
-    r"(in|out|inout)" => DIRECTION,
+    r"(inout|in|out)" => DIRECTION,
     "void" => VOID,
     r"(byte|short|int|long|float|double|boolean|char)" => PRIMITIVE,
     r"(String|CharSequence)" => STRING,

@@ -553,22 +553,13 @@ mod tests {
         let input = "float []";
         assert_parser!(input, rules::aidl::TypeParser::new());
 
-        // No array of String...
-        let input = "String []";
-        let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::TypeParser::new(), &mut diagnostics);
-        assert_diagnostics!(diagnostics, @r###"
-        [
-          Diagnostic(
-            kind: Error,
-            range: "...",
-            message: "Invalid array parameter: `String`",
-            context_message: Some("invalid parameter"),
-            hint: Some("must be a primitive or an enum"),
-            related_infos: [],
-          ),
-        ]
-        "###);
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_array_bidirectional() -> Result<()> {
+        let input = "int [] []";
+        assert_parser!(input, rules::aidl::TypeParser::new());
 
         Ok(())
     }
@@ -577,23 +568,6 @@ mod tests {
     fn test_type_list() -> Result<()> {
         let input = "List <MyObject >";
         assert_parser!(input, rules::aidl::TypeParser::new());
-
-        // No List for type_primitives
-        let input = "List<int>";
-        let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::TypeParser::new(), &mut diagnostics);
-        assert_diagnostics!(diagnostics, @r###"
-        [
-          Diagnostic(
-            kind: Error,
-            range: "...",
-            message: "Invalid list parameter: `int`",
-            context_message: Some("invalid parameter"),
-            hint: Some("must be an object"),
-            related_infos: [],
-          ),
-        ]
-        "###);
 
         Ok(())
     }
@@ -606,51 +580,6 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_type_map_primitive1() -> Result<()> {
-        // No Map for type_primitives
-        let input = "Map<int, String>";
-        let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::TypeParser::new(), &mut diagnostics);
-        assert_diagnostics!(diagnostics, @r###"
-        [
-          Diagnostic(
-            kind: Error,
-            range: "...",
-            message: "Invalid map key: int",
-            context_message: Some("invalid key"),
-            hint: Some("key must be an object"),
-            related_infos: [],
-          ),
-        ]
-        "###);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_type_map_primitive2() -> Result<()> {
-        // No Map for type_primitives
-        let input = "Map<String, int>";
-        let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::TypeParser::new(), &mut diagnostics);
-        assert_diagnostics!(diagnostics, @r###"
-        [
-          Diagnostic(
-            kind: Error,
-            range: "...",
-            message: "Invalid map value: int",
-            context_message: Some("invalid value"),
-            hint: Some("value must be an object"),
-            related_infos: [],
-          ),
-        ]
-        "###);
-
-        Ok(())
-    }
-
-    #[test]
     #[test]
     fn test_value() -> Result<()> {
         // Numbers

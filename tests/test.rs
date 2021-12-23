@@ -12,7 +12,7 @@ fn test_parse() -> Result<()> {
         import com.bwa.aidl_test.UnusedEnum;
 
         interface MyInterface {
-            String get_name(MyParcelable);
+            String get_name(in MyParcelable);
         }
     "#;
 

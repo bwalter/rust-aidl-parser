@@ -1,14 +1,15 @@
 use std::{
-    collections::{hash_map, HashMap, HashSet},
+    collections::HashMap,
     fmt::Debug,
     hash::Hash,
     io::Read,
     path::{Path, PathBuf},
 };
 
-use crate::diagnostic::{Diagnostic, RelatedInfo};
+use crate::ast;
+use crate::diagnostic::Diagnostic;
 use crate::rules;
-use crate::{ast, diagnostic::DiagnosticKind};
+use crate::validation;
 
 /// A parser instance which receives the individual AIDL files via
 /// Parser::add_content() or Parser::add_file(). Once all the files
@@ -119,167 +120,17 @@ where
 
     pub fn parse(&self) -> HashMap<ID, ParseFileResult<ID>> {
         let keys = self.collect_item_keys();
-
-        self.lalrpop_results
-            .clone()
-            .into_iter()
-            .map(|(id, mut fr)| {
-                let mut file = match fr.file {
-                    Some(f) => f,
-                    None => return (id, ParseFileResult { file: None, ..fr }),
-                };
-
-                let resolved = resolve_types(&mut file, &mut fr.diagnostics);
-                check_types(&mut file, &mut fr.diagnostics);
-                check_imports(&file.imports, &resolved, &keys, &mut fr.diagnostics);
-
-                // Sort diagnostics by line
-                fr.diagnostics.sort_by_key(|d| d.range.start.line_col.0);
-
-                (
-                    id,
-                    ParseFileResult {
-                        file: Some(file),
-                        ..fr
-                    },
-                )
-            })
-            .collect()
+        validation::validate(keys, self.lalrpop_results.clone())
     }
 
-    fn collect_item_keys(&self) -> HashSet<ast::ItemKey> {
+    fn collect_item_keys(&self) -> HashMap<ast::ItemKey, ast::ItemKind> {
         self.lalrpop_results
             .iter()
             .map(|(_, fr)| &fr.file)
             .flatten()
-            .map(|f| f.get_key())
+            .map(|f| (f.get_key(), f.item.get_kind()))
             .collect()
     }
-}
-
-fn walk_types<F: FnMut(&mut ast::Type)>(file: &mut ast::File, mut f: F) {
-    let mut visit_type_helper = |type_: &mut ast::Type| {
-        f(type_);
-        type_.generic_types.iter_mut().for_each(|t| f(t));
-    };
-
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => {
-                    visit_type_helper(&mut m.return_type);
-                    m.args.iter_mut().for_each(|arg| {
-                        visit_type_helper(&mut arg.arg_type);
-                    })
-                }
-                ast::InterfaceElement::Const(c) => {
-                    visit_type_helper(&mut c.const_type);
-                }
-            });
-        }
-        ast::Item::Parcelable(ref mut p) => {
-            p.members.iter_mut().for_each(|m| {
-                visit_type_helper(&mut m.member_type);
-            });
-        }
-        ast::Item::Enum(_) => (),
-    }
-}
-
-fn resolve_types(file: &mut ast::File, diagnostics: &mut Vec<Diagnostic>) -> HashSet<String> {
-    let imports: Vec<String> = file
-        .imports
-        .iter()
-        .map(|i| i.get_qualified_name())
-        .collect();
-
-    let mut resolved = HashSet::new();
-
-    walk_types(file, |type_: &mut ast::Type| {
-        if type_.kind == ast::TypeKind::Custom && type_.definition.is_none() {
-            if let Some(import) = imports
-                .iter()
-                .find(|i| &type_.name == *i || i.ends_with(&format!(".{}", type_.name)))
-            {
-                resolved.insert(import.clone());
-                type_.definition = Some(import.clone());
-            } else {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    range: type_.symbol_range.clone(),
-                    message: format!("Unknown type `{}`", type_.name),
-                    context_message: Some("unknown type".to_owned()),
-                    hint: None,
-                    related_infos: Vec::new(),
-                });
-            }
-        }
-    });
-
-    resolved
-}
-
-fn check_imports(
-    imports: &[ast::Import],
-    resolved: &HashSet<String>,
-    defined: &HashSet<String>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    // array of Import -> map of "qualified name" -> Import
-    let imports: HashMap<String, &ast::Import> =
-        imports.iter().fold(HashMap::new(), |mut map, import| {
-            match map.entry(import.get_qualified_name()) {
-                hash_map::Entry::Occupied(previous) => {
-                    diagnostics.push(Diagnostic {
-                        kind: DiagnosticKind::Error,
-                        range: import.symbol_range.clone(),
-                        message: format!("Duplicated import `{}`", import.get_qualified_name()),
-                        context_message: Some("duplicated import".to_owned()),
-                        hint: None,
-                        related_infos: Vec::from([RelatedInfo {
-                            message: "previous location".to_owned(),
-                            range: previous.get().symbol_range.clone(),
-                        }]),
-                    });
-                }
-                hash_map::Entry::Vacant(v) => {
-                    v.insert(import);
-                }
-            }
-            map
-        });
-
-    for (qualified_import, import) in imports.into_iter() {
-        if !defined.contains(&qualified_import) {
-            diagnostics.push(Diagnostic {
-                kind: DiagnosticKind::Error,
-                range: import.symbol_range.clone(),
-                message: format!("Unresolved import `{}`", import.name),
-                context_message: Some("unresolved import".to_owned()),
-                hint: None,
-                related_infos: Vec::new(),
-            });
-        } else if !resolved.contains(&qualified_import) {
-            diagnostics.push(Diagnostic {
-                kind: DiagnosticKind::Warning,
-                range: import.symbol_range.clone(),
-                message: format!("Unused import `{}`", import.name),
-                context_message: Some("unused import".to_owned()),
-                hint: None,
-                related_infos: Vec::new(),
-            });
-        }
-    }
-}
-
-// TODO: additional type checks
-fn check_types(file: &mut ast::File, _diagnostics: &mut Vec<Diagnostic>) {
-    walk_types(file, |type_: &mut ast::Type| match &type_.definition {
-        Some(_type_def) if type_.kind == ast::TypeKind::Custom => {
-            //println!("Resolved type: {}", type_def);
-        }
-        _ => (),
-    });
 }
 
 impl Parser<PathBuf> {

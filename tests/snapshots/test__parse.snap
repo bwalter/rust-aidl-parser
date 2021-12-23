@@ -1,6 +1,6 @@
 ---
 source: tests/test.rs
-expression: "res[0].file.as_ref().unwrap()"
+expression: "res[&0].file.as_ref().unwrap()"
 
 ---
 File(
@@ -45,7 +45,16 @@ File(
         ),
         args: [
           Arg(
-            direction: Unspecified,
+            direction: In(Range(
+              start: Position(
+                offset: 287,
+                line_col: (10, 29),
+              ),
+              end: Position(
+                offset: 289,
+                line_col: (10, 31),
+              ),
+            )),
             name: None,
             arg_type: Type(
               name: "MyParcelable",

@@ -1,9 +1,0 @@
----
-source: src/lib.rs
-expression: res
-
----
-Package(
-  name: "x.y.z",
-  symbol_range: "...",
-)

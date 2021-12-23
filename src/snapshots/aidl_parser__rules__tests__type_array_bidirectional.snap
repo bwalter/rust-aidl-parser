@@ -1,26 +1,19 @@
 ---
-source: src/lib.rs
+source: src/rules.rs
 expression: res
 
 ---
 Type(
-  name: "Map",
-  kind: List,
+  name: "Array",
+  kind: Array,
   generic_types: [
     Type(
-      name: "Key",
-      kind: Custom,
-      generic_types: [],
-      definition: None,
-      symbol_range: "...",
-    ),
-    Type(
-      name: "List",
-      kind: List,
+      name: "Array",
+      kind: Array,
       generic_types: [
         Type(
-          name: "V",
-          kind: Custom,
+          name: "int",
+          kind: Primitive,
           generic_types: [],
           definition: None,
           symbol_range: "...",

@@ -11,7 +11,6 @@ AIDL parser for Rust.
 
 TODO:
 - Document how to display diagnostics (e.g. with CodeSpan)
-- Remove line_col from results and let the client calculate it?
 - Annotation attached to primitive type
 - union (Android 12)
 - nested types (Android T)
@@ -20,10 +19,7 @@ TODO:
 - Android types: android.os.Parcelable, IBinder, FileDescriptor, ParcelFileDescriptor, 
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - validate:
-  - direction (based on Object), required for all non-primitive parameters, other restrictions regarding in
-  - duplicated methods
-  - unused/duplicated imports
-  - oneway only for void
+  - duplicated method names
   - duplicated method values
 
 ## Usage
@@ -32,7 +28,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-predicates = "0.1.5"
+aidl-parser = "0.1.5"
 ```
 
 ## Example

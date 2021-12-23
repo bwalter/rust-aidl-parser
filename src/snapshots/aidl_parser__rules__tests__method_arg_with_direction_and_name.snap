@@ -4,7 +4,16 @@ expression: res
 
 ---
 Arg(
-  direction: Out,
+  direction: Out(Range(
+    start: Position(
+      offset: 0,
+      line_col: (1, 1),
+    ),
+    end: Position(
+      offset: 3,
+      line_col: (1, 4),
+    ),
+  )),
   name: Some("roger"),
   arg_type: Type(
     name: "TypeName",
