@@ -21,6 +21,7 @@ TODO:
 - validate:
   - duplicated method names
   - duplicated method values
+  - file name matching item name
 
 ## Usage
 

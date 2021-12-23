@@ -193,6 +193,27 @@ fn check_types(
 ) {
     walk_types(file, |type_: &mut ast::Type| match &type_.kind {
         ast::TypeKind::Map => {
+            // Handle wrong number of generics
+            match type_.generic_types.len() {
+                0 => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Warning,
+                        message: format!("Declaring a non-generic map is not recommended",),
+                        context_message: Some("non-generic map".to_owned()),
+                        range: type_.symbol_range.clone(),
+                        hint: Some(
+                            "consider adding key and value parameters (e.g.: Map<String, String>)"
+                                .to_owned(),
+                        ),
+                        related_infos: Vec::new(),
+                    });
+                    return;
+                }
+                2 => (),
+                _ => unreachable!(), // handled via lalrpop rule
+            }
+
+            // Handle invalid generic types
             let key_type = &type_.generic_types[0];
             let value_type = &type_.generic_types[1];
             let forbidden_key = is_collection_generic_type_forbidden(key_type, defined);
@@ -233,6 +254,23 @@ fn check_types(
             }
         }
         ast::TypeKind::List => {
+            // Handle wrong number of generics
+            match type_.generic_types.len() {
+                0 => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Warning,
+                        message: String::from("Declaring a non-generic list is not recommended"),
+                        context_message: Some("non-generic list".to_owned()),
+                        range: type_.symbol_range.clone(),
+                        hint: Some("consider adding a parameter (e.g.: List<String>)".to_owned()),
+                        related_infos: Vec::new(),
+                    });
+                    return;
+                }
+                1 => (),
+                _ => unreachable!(), // handled via lalrpop rule
+            }
+
             let value_type = &type_.generic_types[0];
             if is_collection_generic_type_forbidden(value_type, defined) {
                 diagnostics.push(Diagnostic {

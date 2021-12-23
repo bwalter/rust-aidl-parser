@@ -339,6 +339,16 @@ impl Type {
         }
     }
 
+    pub fn non_generic_list(lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+        Type {
+            name: "List".to_owned(),
+            kind: TypeKind::List,
+            generic_types: Vec::new(),
+            definition: None,
+            symbol_range: Range::new(lookup, start, end),
+        }
+    }
+
     pub fn map(
         key_param: Type,
         value_param: Type,
@@ -355,17 +365,11 @@ impl Type {
         }
     }
 
-    pub fn invalid_with_generics<S: Into<String>>(
-        name: S,
-        params: &[Type],
-        lookup: &line_col::LineColLookup,
-        start: usize,
-        end: usize,
-    ) -> Self {
+    pub fn non_generic_map(lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
         Type {
-            name: name.into(),
-            kind: TypeKind::Invalid,
-            generic_types: params.to_vec(),
+            name: "Map".to_owned(),
+            kind: TypeKind::Map,
+            generic_types: Vec::new(),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
         }

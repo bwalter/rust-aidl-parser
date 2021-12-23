@@ -372,20 +372,9 @@ mod tests {
     #[test]
     fn test_method_with_invalid_value() -> Result<()> {
         let input = "TypeName myMethod() = 12.3;";
-        let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::MethodParser::new(), &mut diagnostics);
-        assert_diagnostics!(diagnostics, @r###"
-        [
-          Diagnostic(
-            kind: Error,
-            range: "...",
-            message: "Invalid method value: number too large to fit in target type",
-            context_message: None,
-            hint: None,
-            related_infos: [],
-          ),
-        ]
-        "###);
+        assert!(rules::aidl::MethodParser::new()
+            .parse(&lookup(input), &mut Vec::new(), input)
+            .is_err());
 
         Ok(())
     }
@@ -463,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    fn test_member_with_javadoc() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_member_with_javadoc() -> Result<()> {
         let input = r#"/**
              * Member documentation
              */
@@ -573,9 +562,50 @@ mod tests {
     }
 
     #[test]
+    fn test_type_list_non_generic() -> Result<()> {
+        let input = "List";
+        assert_parser!(input, rules::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_list_invalid() -> Result<()> {
+        let input = "List<A, B>";
+        assert!(rules::aidl::ValueParser::new()
+            .parse(&lookup(input), &mut Vec::new(), input)
+            .is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_type_map() -> Result<()> {
         let input = "Map<Key,List<V>>";
         assert_parser!(input, rules::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_non_generic() -> Result<()> {
+        let input = "Map";
+        assert_parser!(input, rules::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_map_invalid() -> Result<()> {
+        let input = "Map<A>";
+        assert!(rules::aidl::ValueParser::new()
+            .parse(&lookup(input), &mut Vec::new(), input)
+            .is_err());
+
+        let input = "Map<A,B,C>";
+        assert!(rules::aidl::ValueParser::new()
+            .parse(&lookup(input), &mut Vec::new(), input)
+            .is_err());
 
         Ok(())
     }

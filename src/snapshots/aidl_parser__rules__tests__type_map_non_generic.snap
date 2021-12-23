@@ -1,0 +1,12 @@
+---
+source: src/rules.rs
+expression: res
+
+---
+Type(
+  name: "Map",
+  kind: Map,
+  generic_types: [],
+  definition: None,
+  symbol_range: "...",
+)

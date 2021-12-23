@@ -312,6 +312,9 @@ TypeList: ast::Type = {
     <p1:@L> LIST "<" <p:Type> ">" <p2:@R> => {
         ast::Type::list(p, &lookup, p1, p2)
     },
+    <p1:@L> LIST <p2:@R> => {
+        ast::Type::non_generic_list(&lookup, p1, p2)
+    },
 }
 
 TypeMap: ast::Type = {
@@ -319,6 +322,9 @@ TypeMap: ast::Type = {
         <k:Type> "," <v:Type>
     ">" <p2:@R> => {
         ast::Type::map(k, v, &lookup, p1, p2)
+    },
+    <p1:@L> MAP <p2:@R> => {
+        ast::Type::non_generic_map(&lookup, p1, p2)
     },
 }
 
