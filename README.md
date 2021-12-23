@@ -29,7 +29,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-predicates = "0.2.0"
+aidl-parser = "0.2.0"
 ```
 
 ## Example
