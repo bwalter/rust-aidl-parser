@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.2.0] - 2021-12-23
+
 - Fix wrong types for maps
 - Validate method arg direction based on type
 - General validation and diagnostics improvements

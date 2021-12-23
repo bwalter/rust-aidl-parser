@@ -28,7 +28,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-aidl-parser = "0.1.5"
+predicates = "0.2.0"
 ```
 
 ## Example
