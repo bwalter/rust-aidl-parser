@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.3.0] - 2021-12-24
+
 - Add support for non-generic lists/maps
 - Better check for method number
 - Add support for object values
