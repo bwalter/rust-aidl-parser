@@ -9,7 +9,18 @@ AIDL parser for Rust.
 - Validate project
 - Provide diagnostics (errors and warnings) with location
 
-TODO:
+## AIDL language support
+
+It is currently a best effort to provide good diagnostic and navigation based on AIDL documentation.
+
+The code base is (much) simpler than the official implementation but (arguably) more readable and easier to understand and does not support legacy options. It is planned to gradually improve language support to cover most of the functionalities of the AIDL language.
+
+If you need specific support, please do not hesitate to submit an issue or a pull request.
+
+Link to AOSP AIDL implementation:
+https://android.googlesource.com/platform/system/tools/aidl/+/refs/heads/master/
+
+## TODO
 - Document how to display diagnostics (e.g. with CodeSpan)
 - Annotation attached to primitive type
 - union (Android 12)
