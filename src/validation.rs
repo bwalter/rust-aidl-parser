@@ -41,63 +41,6 @@ where
         .collect()
 }
 
-fn walk_types<F: FnMut(&mut ast::Type)>(file: &mut ast::File, mut f: F) {
-    let mut visit_type_helper = |type_: &mut ast::Type| {
-        f(type_);
-        type_.generic_types.iter_mut().for_each(|t| f(t));
-    };
-
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => {
-                    visit_type_helper(&mut m.return_type);
-                    m.args.iter_mut().for_each(|arg| {
-                        visit_type_helper(&mut arg.arg_type);
-                    })
-                }
-                ast::InterfaceElement::Const(c) => {
-                    visit_type_helper(&mut c.const_type);
-                }
-            });
-        }
-        ast::Item::Parcelable(ref mut p) => {
-            p.members.iter_mut().for_each(|m| {
-                visit_type_helper(&mut m.member_type);
-            });
-        }
-        ast::Item::Enum(_) => (),
-    }
-}
-
-fn walk_methods<F: FnMut(&mut ast::Method)>(file: &mut ast::File, mut f: F) {
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => f(m),
-                ast::InterfaceElement::Const(_) => (),
-            });
-        }
-        ast::Item::Parcelable(_) => (),
-        ast::Item::Enum(_) => (),
-    }
-}
-
-fn walk_args<F: FnMut(&mut ast::Arg)>(file: &mut ast::File, mut f: F) {
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => m.args.iter_mut().for_each(|arg| {
-                    f(arg);
-                }),
-                ast::InterfaceElement::Const(_) => (),
-            });
-        }
-        ast::Item::Parcelable(_) => (),
-        ast::Item::Enum(_) => (),
-    }
-}
-
 fn resolve_types(file: &mut ast::File, diagnostics: &mut Vec<Diagnostic>) -> HashSet<String> {
     let imports: Vec<String> = file
         .imports
@@ -198,7 +141,7 @@ fn check_types(
                 0 => {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Warning,
-                        message: format!("Declaring a non-generic map is not recommended",),
+                        message: String::from("Declaring a non-generic map is not recommended"),
                         context_message: Some("non-generic map".to_owned()),
                         range: type_.symbol_range.clone(),
                         hint: Some(
@@ -339,8 +282,8 @@ fn check_args(
             },
         };
 
-        match get_requirement_for_direction(&arg.arg_type, defined) {
-            RequirementForDirection::DirectionRequired => {
+        match get_requirement_for_arg_direction(&arg.arg_type, defined) {
+            RequirementForArgDirection::DirectionRequired => {
                 if arg.direction == ast::Direction::Unspecified {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
@@ -352,7 +295,7 @@ fn check_args(
                     });
                 }
             }
-            RequirementForDirection::CanOnlyBeInOrUnspecified => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified => {
                 if !matches!(
                     arg.direction,
                     ast::Direction::Unspecified | ast::Direction::In(_)
@@ -367,40 +310,44 @@ fn check_args(
                     });
                 }
             }
-            RequirementForDirection::NoRequirement => (),
+            RequirementForArgDirection::NoRequirement => (),
         }
     });
 }
 
-enum RequirementForDirection {
+enum RequirementForArgDirection {
     DirectionRequired,
     CanOnlyBeInOrUnspecified,
     NoRequirement,
 }
 
-fn get_requirement_for_direction(
+fn get_requirement_for_arg_direction(
     type_: &ast::Type,
     defined: &HashMap<String, ast::ItemKind>,
-) -> RequirementForDirection {
+) -> RequirementForArgDirection {
     match type_.kind {
-        ast::TypeKind::Primitive => RequirementForDirection::CanOnlyBeInOrUnspecified,
-        ast::TypeKind::Void => RequirementForDirection::CanOnlyBeInOrUnspecified,
-        ast::TypeKind::Array => RequirementForDirection::DirectionRequired,
-        ast::TypeKind::Map | ast::TypeKind::List => RequirementForDirection::DirectionRequired,
-        ast::TypeKind::String => RequirementForDirection::CanOnlyBeInOrUnspecified,
+        ast::TypeKind::Primitive => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
+        ast::TypeKind::Void => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
+        ast::TypeKind::Array => RequirementForArgDirection::DirectionRequired,
+        ast::TypeKind::Map | ast::TypeKind::List => RequirementForArgDirection::DirectionRequired,
+        ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => RequirementForDirection::DirectionRequired,
-                    Some(ast::ItemKind::Interface) => RequirementForDirection::DirectionRequired,
-                    Some(ast::ItemKind::Enum) => RequirementForDirection::CanOnlyBeInOrUnspecified,
-                    None => RequirementForDirection::NoRequirement,
+                    Some(ast::ItemKind::Parcelable) => {
+                        RequirementForArgDirection::DirectionRequired
+                    }
+                    Some(ast::ItemKind::Interface) => RequirementForArgDirection::DirectionRequired,
+                    Some(ast::ItemKind::Enum) => {
+                        RequirementForArgDirection::CanOnlyBeInOrUnspecified
+                    }
+                    None => RequirementForArgDirection::NoRequirement,
                 }
             } else {
-                RequirementForDirection::NoRequirement
+                RequirementForArgDirection::NoRequirement
             }
         }
-        ast::TypeKind::Invalid => RequirementForDirection::NoRequirement,
+        ast::TypeKind::Invalid => RequirementForArgDirection::NoRequirement,
     }
 }
 
@@ -455,5 +402,62 @@ fn is_array_generic_type_forbidden(
                 false // we don't know
             }
         }
+    }
+}
+
+fn walk_types<F: FnMut(&mut ast::Type)>(file: &mut ast::File, mut f: F) {
+    let mut visit_type_helper = |type_: &mut ast::Type| {
+        f(type_);
+        type_.generic_types.iter_mut().for_each(&mut f);
+    };
+
+    match file.item {
+        ast::Item::Interface(ref mut i) => {
+            i.elements.iter_mut().for_each(|el| match el {
+                ast::InterfaceElement::Method(m) => {
+                    visit_type_helper(&mut m.return_type);
+                    m.args.iter_mut().for_each(|arg| {
+                        visit_type_helper(&mut arg.arg_type);
+                    })
+                }
+                ast::InterfaceElement::Const(c) => {
+                    visit_type_helper(&mut c.const_type);
+                }
+            });
+        }
+        ast::Item::Parcelable(ref mut p) => {
+            p.members.iter_mut().for_each(|m| {
+                visit_type_helper(&mut m.member_type);
+            });
+        }
+        ast::Item::Enum(_) => (),
+    }
+}
+
+fn walk_methods<F: FnMut(&mut ast::Method)>(file: &mut ast::File, mut f: F) {
+    match file.item {
+        ast::Item::Interface(ref mut i) => {
+            i.elements.iter_mut().for_each(|el| match el {
+                ast::InterfaceElement::Method(m) => f(m),
+                ast::InterfaceElement::Const(_) => (),
+            });
+        }
+        ast::Item::Parcelable(_) => (),
+        ast::Item::Enum(_) => (),
+    }
+}
+
+fn walk_args<F: FnMut(&mut ast::Arg)>(file: &mut ast::File, mut f: F) {
+    match file.item {
+        ast::Item::Interface(ref mut i) => {
+            i.elements.iter_mut().for_each(|el| match el {
+                ast::InterfaceElement::Method(m) => m.args.iter_mut().for_each(|arg| {
+                    f(arg);
+                }),
+                ast::InterfaceElement::Const(_) => (),
+            });
+        }
+        ast::Item::Parcelable(_) => (),
+        ast::Item::Enum(_) => (),
     }
 }

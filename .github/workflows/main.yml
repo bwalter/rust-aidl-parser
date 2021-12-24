@@ -37,7 +37,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all
+          args: --release --all -- -D clippy::all
 
       - name: Cargo test
         uses: actions-rs/cargo@v1
