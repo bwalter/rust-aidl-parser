@@ -3,6 +3,11 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Improved documentation
+- New public module traverse to help visiting AST
+- Refactor validation
+- Various grammar improvements
+
 ## [0.3.0] - 2021-12-24
 
 - Add support for non-generic lists/maps

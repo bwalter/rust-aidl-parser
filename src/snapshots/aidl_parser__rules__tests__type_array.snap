@@ -10,11 +10,8 @@ Type(
     Type(
       name: "float",
       kind: Primitive,
-      generic_types: [],
-      definition: None,
       symbol_range: "...",
     ),
   ],
-  definition: None,
   symbol_range: "...",
 )

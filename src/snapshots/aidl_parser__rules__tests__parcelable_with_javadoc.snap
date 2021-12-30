@@ -6,7 +6,6 @@ expression: res
 Parcelable(
   name: "Tomato",
   members: [],
-  annotations: [],
   doc: Some("Parcelable documentation"),
   full_range: "...",
   symbol_range: "...",

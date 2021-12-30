@@ -18,10 +18,8 @@ Arg(
   arg_type: Type(
     name: "TypeName",
     kind: Custom,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
-  doc: None,
-  annotations: [],
+  symbol_range: "...",
+  full_range: "...",
 )

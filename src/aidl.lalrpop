@@ -7,9 +7,9 @@ use crate::ast;
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
 use crate::javadoc;
 
-pub OptFile: Option<ast::File> = {
+pub OptAidl: Option<ast::Aidl> = {
     <p:Package> <vi:Import*> <oi:OptItem> => {
-        oi.map(|item| ast::File {
+        oi.map(|item| ast::Aidl {
             package: p,
             imports: vi,
             item,
@@ -195,11 +195,13 @@ pub(crate) Arg: ast::Arg = {
     <p0:@L>
     <d:Direction> 
     <annotations:AnnotationList>
-    <t:Type> <n:IDENT?> => {
+    <t:Type> <sp1:@L> <n:IDENT?> <p2:@R> => {
         ast::Arg {
             direction: d,
             name: n.map(str::to_owned),
             arg_type: t,
+            symbol_range: ast::Range::new(&lookup, sp1, p2),
+            full_range: ast::Range::new(&lookup, p0, p2),
             annotations,
             doc: javadoc::get_javadoc(input, p0),
         }

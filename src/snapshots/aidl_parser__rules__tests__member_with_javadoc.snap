@@ -8,13 +8,9 @@ Member(
   member_type: Type(
     name: "TypeName",
     kind: Custom,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
-  value: None,
-  symbol_range: "...",
   doc: Some("Member documentation"),
-  annotations: [],
+  symbol_range: "...",
   full_range: "...",
 )

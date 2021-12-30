@@ -9,14 +9,11 @@ Interface(
   annotations: [
     Annotation(
       name: "@InterfaceAnnotation1",
-      key_values: {},
     ),
     Annotation(
       name: "@InterfaceAnnotation2",
-      key_values: {},
     ),
   ],
-  doc: None,
   full_range: "...",
   symbol_range: "...",
 )

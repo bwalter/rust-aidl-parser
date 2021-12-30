@@ -6,7 +6,5 @@ expression: res
 Type(
   name: "List",
   kind: List,
-  generic_types: [],
-  definition: None,
   symbol_range: "...",
 )

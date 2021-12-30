@@ -6,7 +6,6 @@ expression: res
 Interface(
   name: "Potato",
   elements: [],
-  annotations: [],
   doc: Some("Interface documentation"),
   full_range: "...",
   symbol_range: "...",

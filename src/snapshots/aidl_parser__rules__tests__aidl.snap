@@ -3,7 +3,7 @@ source: src/rules.rs
 expression: res
 
 ---
-Some(File(
+Some(Aidl(
   package: Package(
     name: "x.y.z",
     symbol_range: "...",
@@ -18,8 +18,6 @@ Some(File(
   item: Interface(Interface(
     name: "MyInterface",
     elements: [],
-    annotations: [],
-    doc: None,
     full_range: "...",
     symbol_range: "...",
   )),

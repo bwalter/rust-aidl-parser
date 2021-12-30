@@ -2,9 +2,10 @@ use std::collections::{hash_map, HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::diagnostic::{Diagnostic, DiagnosticKind};
+use crate::ast;
+use crate::diagnostic::{self, Diagnostic, DiagnosticKind};
 use crate::parser::ParseFileResult;
-use crate::{ast, diagnostic};
+use crate::traverse;
 
 pub(crate) fn validate<ID>(
     keys: HashMap<String, ast::ItemKind>,
@@ -16,16 +17,26 @@ where
     lalrpop_results
         .into_iter()
         .map(|(id, mut fr)| {
-            let mut file = match fr.file {
+            let mut ast = match fr.ast {
                 Some(f) => f,
-                None => return (id, ParseFileResult { file: None, ..fr }),
+                None => return (id, ParseFileResult { ast: None, ..fr }),
             };
 
-            let resolved = resolve_types(&mut file, &mut fr.diagnostics);
-            check_types(&mut file, &keys, &mut fr.diagnostics);
-            check_methods(&mut file, &keys, &mut fr.diagnostics);
-            check_args(&mut file, &keys, &mut fr.diagnostics);
-            check_imports(&file.imports, &resolved, &keys, &mut fr.diagnostics);
+            // Map qualified name -> import
+            let imports: HashSet<String> =
+                ast.imports.iter().map(|i| i.get_qualified_name()).collect();
+
+            // Resolve types (check custom types and set definition if found in imports)
+            let resolved = resolve_types(&mut ast, &imports, &mut fr.diagnostics);
+
+            // Check imports (e.g. unresolved, unused, duplicated)
+            check_imports(&ast.imports, &resolved, &keys, &mut fr.diagnostics);
+
+            // Check types (e.g.: map parameters)
+            check_types(&ast, &keys, &mut fr.diagnostics);
+
+            // Check methods (e.g.: return type of async methods)
+            check_methods(&ast, &keys, &mut fr.diagnostics);
 
             // Sort diagnostics by line
             fr.diagnostics.sort_by_key(|d| d.range.start.line_col.0);
@@ -33,7 +44,7 @@ where
             (
                 id,
                 ParseFileResult {
-                    file: Some(file),
+                    ast: Some(ast),
                     ..fr
                 },
             )
@@ -41,37 +52,43 @@ where
         .collect()
 }
 
-fn resolve_types(file: &mut ast::File, diagnostics: &mut Vec<Diagnostic>) -> HashSet<String> {
-    let imports: Vec<String> = file
-        .imports
-        .iter()
-        .map(|i| i.get_qualified_name())
-        .collect();
-
+fn resolve_types(
+    ast: &mut ast::Aidl,
+    imports: &HashSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> HashSet<String> {
     let mut resolved = HashSet::new();
-
-    walk_types(file, |type_: &mut ast::Type| {
-        if type_.kind == ast::TypeKind::Custom && type_.definition.is_none() {
-            if let Some(import) = imports
-                .iter()
-                .find(|i| &type_.name == *i || i.ends_with(&format!(".{}", type_.name)))
-            {
-                resolved.insert(import.clone());
-                type_.definition = Some(import.clone());
-            } else {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    range: type_.symbol_range.clone(),
-                    message: format!("Unknown type `{}`", type_.name),
-                    context_message: Some("unknown type".to_owned()),
-                    hint: None,
-                    related_infos: Vec::new(),
-                });
-            }
+    traverse::walk_types_mut(ast, |type_: &mut ast::Type| {
+        resolve_type(type_, imports, diagnostics);
+        if let Some(definition) = &type_.definition {
+            resolved.insert(definition.clone());
         }
     });
 
     resolved
+}
+
+fn resolve_type(
+    type_: &mut ast::Type,
+    imports: &HashSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if type_.kind == ast::TypeKind::Custom && type_.definition.is_none() {
+        if let Some(import_path) = imports.iter().find(|import_path| {
+            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+        }) {
+            type_.definition = Some(import_path.to_owned());
+        } else {
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                range: type_.symbol_range.clone(),
+                message: format!("Unknown type `{}`", type_.name),
+                context_message: Some("unknown type".to_owned()),
+                hint: None,
+                related_infos: Vec::new(),
+            });
+        }
+    }
 }
 
 fn check_imports(
@@ -80,7 +97,8 @@ fn check_imports(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    // array of Import -> map of "qualified name" -> Import
+    // - generate diagnostics for duplicated, unsued and unresolved imports
+    // - create array of Import -> map of "qualified name" -> Import
     let imports: HashMap<String, &ast::Import> =
         imports.iter().fold(HashMap::new(), |mut map, import| {
             match map.entry(import.get_qualified_name()) {
@@ -130,11 +148,46 @@ fn check_imports(
 }
 
 fn check_types(
-    file: &mut ast::File,
+    ast: &ast::Aidl,
+    keys: &HashMap<String, ast::ItemKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    traverse::walk_types(ast, |type_: &ast::Type| {
+        check_type(type_, keys, diagnostics)
+    });
+}
+
+fn check_type(
+    type_: &ast::Type,
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    walk_types(file, |type_: &mut ast::Type| match &type_.kind {
+    match &type_.kind {
+        ast::TypeKind::Array => {
+            let value_type = &type_.generic_types[0];
+            check_array_element(value_type, defined, diagnostics);
+        }
+        ast::TypeKind::List => {
+            // Handle wrong number of generics
+            match type_.generic_types.len() {
+                0 => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Warning,
+                        message: String::from("Declaring a non-generic list is not recommended"),
+                        context_message: Some("non-generic list".to_owned()),
+                        range: type_.symbol_range.clone(),
+                        hint: Some("consider adding a parameter (e.g.: List<String>)".to_owned()),
+                        related_infos: Vec::new(),
+                    });
+                    return;
+                }
+                1 => (),
+                _ => unreachable!(), // handled via lalrpop rule
+            }
+
+            let value_type = &type_.generic_types[0];
+            check_list_element(value_type, defined, diagnostics);
+        }
         ast::TypeKind::Map => {
             // Handle wrong number of generics
             match type_.generic_types.len() {
@@ -157,120 +210,53 @@ fn check_types(
             }
 
             // Handle invalid generic types
-            let key_type = &type_.generic_types[0];
-            let value_type = &type_.generic_types[1];
-            let forbidden_key = is_collection_generic_type_forbidden(key_type, defined);
-            let forbidden_value = is_collection_generic_type_forbidden(value_type, defined);
-            if forbidden_key && forbidden_value {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    message: format!(
-                        "Invalid map parameters `{}`, `{}`",
-                        key_type.name, value_type.name
-                    ),
-                    context_message: Some("invalid parameters".to_owned()),
-                    range: ast::Range {
-                        start: key_type.symbol_range.start.clone(),
-                        end: value_type.symbol_range.end.clone(),
-                    },
-                    hint: Some("key and value must be objects".to_owned()),
-                    related_infos: Vec::new(),
-                });
-            } else if forbidden_key {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    message: format!("Invalid map key `{}`", key_type.name),
-                    context_message: Some("invalid key".to_owned()),
-                    range: key_type.symbol_range.clone(),
-                    hint: Some("key must be an object".to_owned()),
-                    related_infos: Vec::new(),
-                });
-            } else if forbidden_value {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    message: format!("Invalid map value `{}`", value_type.name),
-                    context_message: Some("invalid value".to_owned()),
-                    range: value_type.symbol_range.clone(),
-                    hint: Some("value must be an object".to_owned()),
-                    related_infos: Vec::new(),
-                });
-            }
-        }
-        ast::TypeKind::List => {
-            // Handle wrong number of generics
-            match type_.generic_types.len() {
-                0 => {
-                    diagnostics.push(Diagnostic {
-                        kind: DiagnosticKind::Warning,
-                        message: String::from("Declaring a non-generic list is not recommended"),
-                        context_message: Some("non-generic list".to_owned()),
-                        range: type_.symbol_range.clone(),
-                        hint: Some("consider adding a parameter (e.g.: List<String>)".to_owned()),
-                        related_infos: Vec::new(),
-                    });
-                    return;
-                }
-                1 => (),
-                _ => unreachable!(), // handled via lalrpop rule
-            }
-
-            let value_type = &type_.generic_types[0];
-            if is_collection_generic_type_forbidden(value_type, defined) {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    message: format!("Invalid list parameter `{}`", value_type.name),
-                    context_message: Some("invalid parameter".to_owned()),
-                    range: value_type.symbol_range.clone(),
-                    hint: Some("must be an object".to_owned()),
-                    related_infos: Vec::new(),
-                });
-            }
-        }
-        ast::TypeKind::Array => {
-            let value_type = &type_.generic_types[0];
-            if is_array_generic_type_forbidden(value_type, defined) {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    message: format!("Invalid array parameter `{}`", value_type.name),
-                    context_message: Some("invalid parameter".to_owned()),
-                    range: value_type.symbol_range.clone(),
-                    hint: Some("must be a primitive or an enum".to_owned()),
-                    related_infos: Vec::new(),
-                });
-            }
+            check_map_key(&type_.generic_types[0], defined, diagnostics);
+            check_map_value(&type_.generic_types[1], defined, diagnostics);
         }
         _ => {}
-    });
+    };
 }
 
+// TODO: check no duplicates, check valid method IDs (either none or all, no duplicates)
 fn check_methods(
-    file: &mut ast::File,
-    _defined: &HashMap<String, ast::ItemKind>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    walk_methods(file, |method: &mut ast::Method| {
-        if method.oneway && method.return_type.kind != ast::TypeKind::Void {
-            diagnostics.push(Diagnostic {
-                kind: DiagnosticKind::Error,
-                message: format!(
-                    "Invalid return type of async method `{}`",
-                    method.return_type.name,
-                ),
-                context_message: Some("must be void".to_owned()),
-                range: method.return_type.symbol_range.clone(),
-                hint: Some("return type of async methods must be `void`".to_owned()),
-                related_infos: Vec::new(),
-            });
-        }
-    });
-}
-
-fn check_args(
-    file: &mut ast::File,
+    file: &ast::Aidl,
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    walk_args(file, |arg: &mut ast::Arg| {
+    traverse::walk_methods(file, |method: &ast::Method| {
+        check_method(method, defined, diagnostics);
+    });
+}
+
+fn check_method(
+    method: &ast::Method,
+    defined: &HashMap<String, ast::ItemKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if method.oneway && method.return_type.kind != ast::TypeKind::Void {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            message: format!(
+                "Invalid return type of async method `{}`",
+                method.return_type.name,
+            ),
+            context_message: Some("must be void".to_owned()),
+            range: method.return_type.symbol_range.clone(),
+            hint: Some("return type of async methods must be `void`".to_owned()),
+            related_infos: Vec::new(),
+        });
+    }
+
+    check_method_args(method, defined, diagnostics);
+}
+
+// Check arg direction (e.g. depending on type or method being oneway)
+fn check_method_args(
+    method: &ast::Method,
+    defined: &HashMap<String, ast::ItemKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for arg in &method.args {
         // Range of direction (or position of arg type)
         let range = match &arg.direction {
             ast::Direction::In(range)
@@ -287,9 +273,9 @@ fn check_args(
                 if arg.direction == ast::Direction::Unspecified {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
-                        message: format!("Missing direction for {}", arg.arg_type.name,),
+                        message: format!("Missing direction for `{}`", arg.arg_type.name,),
                         context_message: Some("missing direction".to_owned()),
-                        range,
+                        range: range.clone(),
                         hint: Some("direction is required for objects".to_owned()),
                         related_infos: Vec::new(),
                     });
@@ -302,9 +288,9 @@ fn check_args(
                 ) {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
-                        message: format!("Invalid direction for {}`", arg.arg_type.name),
+                        message: format!("Invalid direction for `{}`", arg.arg_type.name),
                         context_message: Some("invalid direction".to_owned()),
-                        range,
+                        range: range.clone(),
                         hint: Some("can only be `in` or omitted".to_owned()),
                         related_infos: Vec::new(),
                     });
@@ -312,7 +298,25 @@ fn check_args(
             }
             RequirementForArgDirection::NoRequirement => (),
         }
-    });
+
+        if method.oneway
+            && matches!(
+                arg.direction,
+                ast::Direction::Out(_) | ast::Direction::InOut(_)
+            )
+        {
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                message: format!("Invalid direction for `{}`", arg.arg_type.name),
+                context_message: Some("invalid direction".to_owned()),
+                range,
+                hint: Some(
+                    "arguments of oneway methods can be neither `out` nor `inout`".to_owned(),
+                ),
+                related_infos: Vec::new(),
+            });
+        }
+    }
 }
 
 enum RequirementForArgDirection {
@@ -351,113 +355,697 @@ fn get_requirement_for_arg_direction(
     }
 }
 
-fn is_collection_generic_type_forbidden(
+// Can only have one dimensional arrays
+// "Binder" type cannot be an array (with interface element...)
+// TODO: not allowed for ParcelableHolder, allowed for IBinder, ...
+fn check_array_element(
     type_: &ast::Type,
     defined: &HashMap<String, ast::ItemKind>,
-) -> bool {
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     match type_.kind {
-        ast::TypeKind::Array => false,
-        ast::TypeKind::Invalid => false, // we don't know
-        ast::TypeKind::List => false,
-        ast::TypeKind::Map => false,
-        ast::TypeKind::Primitive => true,
-        ast::TypeKind::String => false,
-        ast::TypeKind::Void => true,
+        ast::TypeKind::Array => {
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                message: String::from("Unsupported multi-dimensional array"),
+                context_message: Some("unsupported array".to_owned()),
+                range: type_.symbol_range.clone(),
+                hint: Some("must be one-dimensional".to_owned()),
+                related_infos: Vec::new(),
+            });
+            return;
+        }
+        ast::TypeKind::Invalid => return,   // not applicable
+        ast::TypeKind::Primitive => return, // OK
+        ast::TypeKind::String => {
+            // String: OK, CharSequence: error
+            if type_.name == "String" {
+                return;
+            }
+        }
+        ast::TypeKind::List => (),
+        ast::TypeKind::Map => (),
+        ast::TypeKind::Void => (),
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => false,
-                    Some(ast::ItemKind::Interface) => false,
-                    Some(ast::ItemKind::Enum) => true, // enum is backed by a primitive
-                    None => false,                     // we don't know
+                    Some(ast::ItemKind::Parcelable) => return, // OK: it is allowed for Parcelable...
+                    Some(ast::ItemKind::Interface) => (),      // "Binder" type cannot be an array
+                    Some(ast::ItemKind::Enum) => return,       // OK: enum is backed by a primitive
+                    None => return,                            // we don't know
                 }
             } else {
-                false // we don't know
+                return; // we don't know
             }
         }
     }
+
+    diagnostics.push(Diagnostic {
+        kind: DiagnosticKind::Error,
+        message: format!("Invalid array element `{}`", type_.name),
+        context_message: Some("invalid parameter".to_owned()),
+        range: type_.symbol_range.clone(),
+        hint: Some("must be a primitive, an enum, a String, a parcelable or a IBinder".to_owned()),
+        related_infos: Vec::new(),
+    });
 }
 
-fn is_array_generic_type_forbidden(
+// List<T> supports parcelable/union, String, IBinder, and ParcelFileDescriptor
+// TODO: IBinder + ParcelFileDescriptor
+fn check_list_element(
     type_: &ast::Type,
     defined: &HashMap<String, ast::ItemKind>,
-) -> bool {
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     match type_.kind {
-        ast::TypeKind::Array => false,
-        ast::TypeKind::Invalid => false, // not applicable
-        ast::TypeKind::List => true,
-        ast::TypeKind::Map => true,
-        ast::TypeKind::Primitive => false,
-        ast::TypeKind::String => true,
-        ast::TypeKind::Void => true,
+        ast::TypeKind::Array => (),
+        ast::TypeKind::Invalid => return, // we don't know
+        ast::TypeKind::List => (),
+        ast::TypeKind::Map => (),
+        ast::TypeKind::Primitive => (),
+        ast::TypeKind::String => {
+            // String: OK, CharSequence: error
+            if type_.name == "String" {
+                return;
+            }
+        }
+        ast::TypeKind::Void => (),
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => true,
-                    Some(ast::ItemKind::Interface) => true,
-                    Some(ast::ItemKind::Enum) => false, // enum is backed by a primitive
-                    None => false,                      // we don't know
+                    Some(ast::ItemKind::Parcelable) => return, // OK
+                    Some(ast::ItemKind::Interface) => (),
+                    Some(ast::ItemKind::Enum) => (), // enum is backed by a primitive
+                    None => return,                  // we don't know
                 }
             } else {
-                false // we don't know
+                return; // we don't know
             }
         }
     }
+
+    diagnostics.push(Diagnostic {
+        kind: DiagnosticKind::Error,
+        message: format!("Invalid list element `{}`", type_.name),
+        context_message: Some("invalid element".to_owned()),
+        range: type_.symbol_range.clone(),
+        hint: Some(
+            "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor".to_owned(),
+        ),
+        related_infos: Vec::new(),
+    });
 }
 
-fn walk_types<F: FnMut(&mut ast::Type)>(file: &mut ast::File, mut f: F) {
-    let mut visit_type_helper = |type_: &mut ast::Type| {
-        f(type_);
-        type_.generic_types.iter_mut().for_each(&mut f);
-    };
-
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => {
-                    visit_type_helper(&mut m.return_type);
-                    m.args.iter_mut().for_each(|arg| {
-                        visit_type_helper(&mut arg.arg_type);
-                    })
-                }
-                ast::InterfaceElement::Const(c) => {
-                    visit_type_helper(&mut c.const_type);
-                }
-            });
-        }
-        ast::Item::Parcelable(ref mut p) => {
-            p.members.iter_mut().for_each(|m| {
-                visit_type_helper(&mut m.member_type);
-            });
-        }
-        ast::Item::Enum(_) => (),
+// The type of key in map must be String
+fn check_map_key(
+    type_: &ast::Type,
+    _defined: &HashMap<String, ast::ItemKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !matches!(type_.kind, ast::TypeKind::String if type_.name == "String") {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            message: format!("Invalid map key `{}`", type_.name),
+            context_message: Some("invalid map key".to_owned()),
+            range: type_.symbol_range.clone(),
+            hint: Some(
+                "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor"
+                    .to_owned(),
+            ),
+            related_infos: Vec::new(),
+        });
     }
 }
 
-fn walk_methods<F: FnMut(&mut ast::Method)>(file: &mut ast::File, mut f: F) {
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => f(m),
-                ast::InterfaceElement::Const(_) => (),
-            });
+// A generic type cannot have any primitive type parameters
+fn check_map_value(
+    type_: &ast::Type,
+    defined: &HashMap<String, ast::ItemKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match type_.kind {
+        ast::TypeKind::Array => return,   // OK
+        ast::TypeKind::Invalid => return, // we don't know
+        ast::TypeKind::List => return,    // OK
+        ast::TypeKind::Map => return,     // OK
+        ast::TypeKind::String => return,  // OK
+        ast::TypeKind::Primitive => (),
+        ast::TypeKind::Void => (),
+        ast::TypeKind::Custom => {
+            if let Some(ref def) = type_.definition {
+                match defined.get(def) {
+                    Some(ast::ItemKind::Parcelable) => return,
+                    Some(ast::ItemKind::Interface) => return,
+                    Some(ast::ItemKind::Enum) => (), // enum is backed by a primitive
+                    None => return,                  // we don't know
+                }
+            } else {
+                return; // we don't know
+            }
         }
-        ast::Item::Parcelable(_) => (),
-        ast::Item::Enum(_) => (),
     }
+
+    diagnostics.push(Diagnostic {
+        kind: DiagnosticKind::Error,
+        message: format!("Invalid map value `{}`", type_.name),
+        context_message: Some("invalid map value".to_owned()),
+        range: type_.symbol_range.clone(),
+        hint: Some("cannot not be a primitive".to_owned()),
+        related_infos: Vec::new(),
+    });
 }
 
-fn walk_args<F: FnMut(&mut ast::Arg)>(file: &mut ast::File, mut f: F) {
-    match file.item {
-        ast::Item::Interface(ref mut i) => {
-            i.elements.iter_mut().for_each(|el| match el {
-                ast::InterfaceElement::Method(m) => m.args.iter_mut().for_each(|arg| {
-                    f(arg);
-                }),
-                ast::InterfaceElement::Const(_) => (),
-            });
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_imports() {
+        let imports = Vec::from([
+            utils::create_import("TestParcelable", 1),
+            utils::create_import("TestParcelable", 2),
+            utils::create_import("TestInterface", 3),
+            utils::create_import("UnusedEnum", 4),
+            utils::create_import("NonExisting", 5),
+        ]);
+
+        let resolved = HashSet::from([
+            "test.path.TestParcelable".into(),
+            "test.path.TestInterface".into(),
+        ]);
+        let defined = HashMap::from([
+            ("test.path.TestParcelable".into(), ast::ItemKind::Parcelable),
+            ("test.path.TestInterface".into(), ast::ItemKind::Interface),
+            ("test.path.UnusedEnum".into(), ast::ItemKind::Enum),
+        ]);
+        let mut diagnostics = Vec::new();
+
+        check_imports(&imports, &resolved, &defined, &mut diagnostics);
+
+        diagnostics.sort_by_key(|d| d.range.start.line_col.0);
+
+        assert_eq!(diagnostics.len(), 3);
+
+        let d = &diagnostics[0];
+        assert_eq!(d.kind, DiagnosticKind::Error);
+        assert!(d.message.contains("Duplicated import"));
+        assert!(d.range.start.line_col.0 == 2);
+
+        let d = &diagnostics[1];
+        assert_eq!(d.kind, DiagnosticKind::Warning);
+        assert!(d.message.contains("Unused import `UnusedEnum`"));
+        assert!(d.range.start.line_col.0 == 4);
+
+        let d = &diagnostics[2];
+        assert_eq!(d.kind, DiagnosticKind::Error);
+        assert!(d.message.contains("Unresolved import `NonExisting`"));
+        assert!(d.range.start.line_col.0 == 5);
+    }
+
+    #[test]
+    fn test_check_type() {
+        let keys = HashMap::from([
+            ("test.TestParcelable".into(), ast::ItemKind::Parcelable),
+            ("test.TestInterface".into(), ast::ItemKind::Interface),
+            ("test.TestEnum".into(), ast::ItemKind::Enum),
+        ]);
+
+        // Valid arrays
+        for t in [
+            utils::create_int(0),
+            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestEnum", 0),
+        ]
+        .into_iter()
+        {
+            let array = utils::create_array(t, 0);
+            let mut diagnostics = Vec::new();
+            check_type(&array, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 0);
         }
-        ast::Item::Parcelable(_) => (),
-        ast::Item::Enum(_) => (),
+
+        // Multi-dimensional array
+        let mut diagnostics = Vec::new();
+        let array = utils::create_array(utils::create_array(utils::create_int(0), 0), 0);
+        check_type(&array, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0]
+            .message
+            .contains("Unsupported multi-dimensional array"));
+
+        // Invalid arrays
+        for t in [
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
+            utils::create_custom_type("test.TestInterface", 0),
+            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+        ]
+        .into_iter()
+        {
+            let array = utils::create_array(t, 0);
+            let mut diagnostics = Vec::new();
+            check_type(&array, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics[0].message.contains("Invalid array"));
+        }
+
+        // Valid list
+        for t in [
+            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_custom_type("test.TestParcelable", 0),
+        ]
+        .into_iter()
+        {
+            let list = utils::create_list(Some(t), 0);
+            let mut diagnostics = Vec::new();
+            check_type(&list, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        // Non-generic list -> warning
+        let mut diagnostics = Vec::new();
+        let list = utils::create_list(None, 105);
+        check_type(&list, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
+        assert_eq!(diagnostics[0].range.start.line_col.0, 105);
+        assert_eq!(diagnostics[0].range.end.line_col.0, 105);
+        assert!(diagnostics[0].message.contains("not recommended"));
+
+        // Invalid lists
+        for t in [
+            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_array(utils::create_int(0), 0),
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
+            utils::create_custom_type("test.TestInterface", 0),
+            utils::create_custom_type("test.TestEnum", 0),
+        ]
+        .into_iter()
+        {
+            let list = utils::create_list(Some(t), 0);
+            let mut diagnostics = Vec::new();
+            check_type(&list, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics[0].message.contains("Invalid list"));
+        }
+
+        // Valid map
+        for vt in [
+            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_array(utils::create_int(0), 0),
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
+            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestInterface", 0),
+        ]
+        .into_iter()
+        {
+            let map = utils::create_map(
+                Some((
+                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                    vt,
+                )),
+                0,
+            );
+            let mut diagnostics = Vec::new();
+            check_type(&map, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        // Non-generic map -> warning
+        let mut diagnostics = Vec::new();
+        let map = utils::create_map(None, 205);
+        check_type(&map, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
+        assert_eq!(diagnostics[0].range.start.line_col.0, 205);
+        assert_eq!(diagnostics[0].range.end.line_col.0, 205);
+        assert!(diagnostics[0].message.contains("not recommended"));
+
+        // Invalid map keys
+        for kt in [
+            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_array(utils::create_int(0), 0),
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
+            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestInterface", 0),
+            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+        ]
+        .into_iter()
+        {
+            let map = utils::create_map(
+                Some((
+                    kt,
+                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                )),
+                0,
+            );
+            let mut diagnostics = Vec::new();
+            check_type(&map, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics[0].message.contains("Invalid map"));
+        }
+
+        // Invalid map values
+        for vt in [
+            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            utils::create_custom_type("test.TestEnum", 0),
+        ]
+        .into_iter()
+        {
+            let map = utils::create_map(
+                Some((
+                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                    vt,
+                )),
+                0,
+            );
+            let mut diagnostics = Vec::new();
+            check_type(&map, &keys, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics[0].message.contains("Invalid map"));
+        }
+    }
+
+    #[test]
+    fn test_check_method() {
+        // Non-async method with return value -> ok
+        let method = ast::Method {
+            oneway: false,
+            name: "test".into(),
+            return_type: ast::Type {
+                name: "int".into(),
+                kind: ast::TypeKind::Primitive,
+                generic_types: Vec::new(),
+                definition: None,
+                symbol_range: utils::create_range(0),
+            },
+            args: Vec::new(),
+            annotations: Vec::new(),
+            value: None,
+            doc: None,
+            symbol_range: utils::create_range(0),
+            full_range: utils::create_range(0),
+        };
+        let mut diagnostics = Vec::new();
+        check_method(&method, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 0);
+
+        // Async method returning void -> ok
+        let method = ast::Method {
+            oneway: true,
+            name: "test".into(),
+            return_type: ast::Type {
+                name: "void".into(),
+                kind: ast::TypeKind::Void,
+                generic_types: Vec::new(),
+                definition: None,
+                symbol_range: utils::create_range(0),
+            },
+            args: Vec::new(),
+            annotations: Vec::new(),
+            value: None,
+            doc: None,
+            symbol_range: utils::create_range(0),
+            full_range: utils::create_range(0),
+        };
+        let mut diagnostics = Vec::new();
+        check_method(&method, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 0);
+
+        // Async method with return value -> error
+        let method = ast::Method {
+            oneway: true,
+            name: "test".into(),
+            return_type: ast::Type {
+                name: "int".into(),
+                kind: ast::TypeKind::Primitive,
+                generic_types: Vec::new(),
+                definition: None,
+                symbol_range: utils::create_range(0),
+            },
+            args: Vec::new(),
+            annotations: Vec::new(),
+            value: None,
+            doc: None,
+            symbol_range: utils::create_range(0),
+            full_range: utils::create_range(0),
+        };
+        let mut diagnostics = Vec::new();
+        check_method(&method, &HashMap::new(), &mut diagnostics);
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0]
+            .message
+            .contains("Invalid return type of async"));
+    }
+
+    #[test]
+    fn test_check_method_args() {
+        let base_method = ast::Method {
+            oneway: false,
+            name: "testMethod".into(),
+            return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            args: Vec::new(),
+            value: None,
+            annotations: Vec::new(),
+            doc: None,
+            symbol_range: utils::create_range(0),
+            full_range: utils::create_range(1),
+        };
+
+        let keys = HashMap::from([
+            ("test.TestParcelable".into(), ast::ItemKind::Parcelable),
+            ("test.TestInterface".into(), ast::ItemKind::Interface),
+            ("test.TestEnum".into(), ast::ItemKind::Enum),
+        ]);
+
+        // Primitives and string can only be in or unspecified
+        for t in [
+            utils::create_int(0),
+            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_custom_type("test.TestEnum", 0),
+        ]
+        .into_iter()
+        {
+            // Unspecified or In => OK
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::Unspecified),
+                    utils::create_arg(t.clone(), ast::Direction::In(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), 0);
+            }
+
+            // Out or InOut => ERROR
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
+                    utils::create_arg(t, ast::Direction::InOut(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), method.args.len());
+                for d in diagnostics {
+                    assert_eq!(d.kind, DiagnosticKind::Error);
+                }
+            }
+        }
+
+        // Arrays, maps, parcelables and interfaces require direction
+        for t in [
+            utils::create_array(utils::create_int(0), 0),
+            utils::create_list(
+                Some(utils::create_simple_type(
+                    "String",
+                    ast::TypeKind::String,
+                    0,
+                )),
+                0,
+            ),
+            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestInterface", 0),
+        ]
+        .into_iter()
+        {
+            // In, Out or InOut => OK
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::In(utils::create_range(0))),
+                    utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
+                    utils::create_arg(t.clone(), ast::Direction::InOut(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), 0);
+            }
+
+            // Unspecified => ERROR
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([utils::create_arg(t, ast::Direction::Unspecified)]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), method.args.len());
+                for d in diagnostics {
+                    assert_eq!(d.kind, DiagnosticKind::Error);
+                }
+            }
+        }
+
+        // Arguments of oneway methods cannot be out or inout
+        for t in [
+            utils::create_array(utils::create_int(0), 0),
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
+            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestInterface", 0),
+        ]
+        .into_iter()
+        {
+            // async + In => OK
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.oneway = true;
+                method.args = Vec::from([utils::create_arg(
+                    t.clone(),
+                    ast::Direction::In(utils::create_range(0)),
+                )]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), 0);
+            }
+
+            // async + Out, InOut => ERROR
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.oneway = true;
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
+                    utils::create_arg(t, ast::Direction::InOut(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), method.args.len());
+                for d in diagnostics {
+                    assert_eq!(d.kind, DiagnosticKind::Error);
+                }
+            }
+        }
+    }
+
+    // Test utils
+    // ---
+
+    mod utils {
+        use crate::ast;
+
+        pub fn create_range(line: usize) -> ast::Range {
+            ast::Range {
+                start: ast::Position {
+                    offset: 0,
+                    line_col: (line, 10),
+                },
+                end: ast::Position {
+                    offset: 0,
+                    line_col: (line, 20),
+                },
+            }
+        }
+
+        pub fn create_import(name: &str, line: usize) -> ast::Import {
+            ast::Import {
+                path: "test.path".into(),
+                name: name.to_owned(),
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_int(line: usize) -> ast::Type {
+            create_simple_type("int", ast::TypeKind::Primitive, line)
+        }
+
+        pub fn create_simple_type(
+            name: &'static str,
+            kind: ast::TypeKind,
+            line: usize,
+        ) -> ast::Type {
+            ast::Type {
+                name: name.into(),
+                kind,
+                generic_types: Vec::new(),
+                definition: None,
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_array(generic_type: ast::Type, line: usize) -> ast::Type {
+            ast::Type {
+                name: "Array".into(),
+                kind: ast::TypeKind::Array,
+                generic_types: Vec::from([generic_type]),
+                definition: None,
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_list(generic_type: Option<ast::Type>, line: usize) -> ast::Type {
+            ast::Type {
+                name: "List".into(),
+                kind: ast::TypeKind::List,
+                generic_types: generic_type.map(|t| [t].into()).unwrap_or_default(),
+                definition: None,
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_map(
+            key_value_types: Option<(ast::Type, ast::Type)>,
+            line: usize,
+        ) -> ast::Type {
+            ast::Type {
+                name: "Map".into(),
+                kind: ast::TypeKind::Map,
+                generic_types: key_value_types
+                    .map(|(k, v)| Vec::from([k, v]))
+                    .unwrap_or_default(),
+                definition: None,
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_custom_type(def: &str, line: usize) -> ast::Type {
+            ast::Type {
+                name: "TestCustomType".into(),
+                kind: ast::TypeKind::Custom,
+                generic_types: Vec::new(),
+                definition: Some(def.into()),
+                symbol_range: create_range(line),
+            }
+        }
+
+        pub fn create_arg(arg_type: ast::Type, direction: ast::Direction) -> ast::Arg {
+            ast::Arg {
+                direction,
+                name: None,
+                arg_type,
+                annotations: Vec::new(),
+                doc: None,
+                symbol_range: create_range(0),
+                full_range: create_range(0),
+            }
+        }
     }
 }

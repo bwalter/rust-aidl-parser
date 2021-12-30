@@ -6,7 +6,5 @@ expression: res
 Type(
   name: "double",
   kind: Primitive,
-  generic_types: [],
-  definition: None,
   symbol_range: "...",
 )

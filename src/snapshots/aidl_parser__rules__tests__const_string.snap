@@ -8,13 +8,9 @@ Const(
   const_type: Type(
     name: "TypeName",
     kind: Custom,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
   value: "\"const value\"",
-  annotations: [],
-  doc: None,
   symbol_range: "...",
   full_range: "...",
 )

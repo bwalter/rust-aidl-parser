@@ -15,8 +15,14 @@ use crate::validation;
 /// Parser::add_content() or Parser::add_file(). Once all the files
 /// have been added, call Parser::parser() to trigger the validation
 /// and access the results.
-/// It is also possible to replace or remote a content with a given
-/// ID and re-trigger the parsing.
+///
+/// The ID of the files added to the parser are used to uniquely
+/// identify the results returned by the parser. It can be any
+/// value used as a key (e.g. number of string) or the location of
+/// the content (e.g. PathBuf or Uri).
+///
+/// The content added to the parser can be removed or replaced
+/// before or after the parsing.
 ///
 /// Example:
 /// ```
@@ -25,32 +31,33 @@ use crate::validation;
 /// let mut parser = Parser::new();
 ///
 /// // Add files via ID + content
-/// parser.add_content(1, "<content of AIDL file #1>");
-/// parser.add_content(2, "<content of AIDL file #2>");
-/// parser.add_content(3, "<content of AIDL file #3>");
+/// parser.add_content("id1", "<content of AIDL file #1>");
+/// parser.add_content("id2", "<content of AIDL file #2>");
+/// parser.add_content("id3", "<content of AIDL file #3>");
 ///
 /// // Parse and get results
-/// let results = parser.parse();
+/// let results = parser.validate();
 ///
 /// assert_eq!(results.len(), 3);
-/// assert!(results.contains_key(&1));
-/// assert!(results.contains_key(&2));
-/// assert!(results.contains_key(&3));
+/// assert!(results.contains_key("id1"));
+/// assert!(results.contains_key("id2"));
+/// assert!(results.contains_key("id3"));
 ///
-/// // Add/replace/remote files
-/// parser.add_content(2, "<updated content of AIDL file #2>");
-/// parser.add_content(4, "<content of AIDL file #4>");
-/// parser.add_content(5, "<content of AIDL file #5>");
-/// parser.remove_content(1);
+/// // Add/replace/remove files
+/// parser.add_content("id2", "<updated content of AIDL file #2>");
+/// parser.add_content("id4", "<content of AIDL file #4>");
+/// parser.add_content("id5", "<content of AIDL file #5>");
+/// parser.remove_content("id3");
 ///
 /// // Parse again and get updated results
-/// let results = parser.parse();
+/// let results = parser.validate();
 ///
 /// assert_eq!(results.len(), 4);
-/// assert!(results.contains_key(&2));
-/// assert!(results.contains_key(&3));
-/// assert!(results.contains_key(&4));
-/// assert!(results.contains_key(&5));
+/// assert!(results.contains_key("id1"));
+/// assert!(results.contains_key("id2"));
+/// assert!(!results.contains_key("id3"));  // removed
+/// assert!(results.contains_key("id4"));
+/// assert!(results.contains_key("id5"));
 /// ```
 pub struct Parser<ID>
 where
@@ -67,7 +74,7 @@ where
     ID: Eq + Hash + Clone + Debug,
 {
     pub id: ID,
-    pub file: Option<ast::File>,
+    pub ast: Option<ast::Aidl>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -82,18 +89,22 @@ where
         }
     }
 
-    /// Add a file content and its key to the parser
+    /// Add a file content and its key to the parser.
+    ///
+    /// This will parse the individual content and store the result internally.
+    ///
+    /// Note: if a content with the same id already exists, the old content will be replaced.
     pub fn add_content(&mut self, id: ID, content: &str) {
         let lookup = line_col::LineColLookup::new(content);
         let mut diagnostics = Vec::new();
 
         let rule_result =
-            rules::aidl::OptFileParser::new().parse(&lookup, &mut diagnostics, content);
+            rules::aidl::OptAidlParser::new().parse(&lookup, &mut diagnostics, content);
 
         let lalrpop_result = match rule_result {
             Ok(file) => ParseFileResult {
                 id: id.clone(),
-                file,
+                ast: file,
                 diagnostics,
             },
             Err(e) => {
@@ -104,7 +115,7 @@ where
 
                 ParseFileResult {
                     id: id.clone(),
-                    file: None,
+                    ast: None,
                     diagnostics,
                 }
             }
@@ -113,12 +124,14 @@ where
         self.lalrpop_results.insert(id, lalrpop_result);
     }
 
-    /// Remote the file with the given key
+    /// Remove the file with the given key
     pub fn remove_content(&mut self, id: ID) {
         self.lalrpop_results.remove(&id);
     }
 
-    pub fn parse(&self) -> HashMap<ID, ParseFileResult<ID>> {
+    /// Validate the results of all files previously added to the parser and return the
+    /// collected results (AST + diagnostics)
+    pub fn validate(&self) -> HashMap<ID, ParseFileResult<ID>> {
         let keys = self.collect_item_keys();
         validation::validate(keys, self.lalrpop_results.clone())
     }
@@ -126,7 +139,7 @@ where
     fn collect_item_keys(&self) -> HashMap<ast::ItemKey, ast::ItemKind> {
         self.lalrpop_results
             .iter()
-            .map(|(_, fr)| &fr.file)
+            .map(|(_, fr)| &fr.ast)
             .flatten()
             .map(|f| (f.get_key(), f.item.get_kind()))
             .collect()
@@ -134,7 +147,9 @@ where
 }
 
 impl Parser<PathBuf> {
-    /// Add a file to the parser and use its path as key
+    /// Add a file to the parser and use its path as key.
+    ///
+    /// If a file with the same path already exists, the old file will be replaced.
     pub fn add_file<P: AsRef<Path>>(&mut self, path: P) -> std::io::Result<()> {
         let mut file = std::fs::File::open(path.as_ref())?;
         let mut buffer = String::new();
@@ -160,7 +175,7 @@ mod test {
     use anyhow::Result;
 
     #[test]
-    fn test_parse() -> Result<()> {
+    fn test_validate() -> Result<()> {
         let interface_aidl = r#"
             package com.bwa.aidl_test;
         
@@ -204,7 +219,7 @@ mod test {
         parser.add_content(0, interface_aidl);
         parser.add_content(1, parcelable_aidl);
         parser.add_content(2, enum_aidl);
-        let res = parser.parse();
+        let res = parser.validate();
 
         // For each file, 1 result
         assert_eq!(res.len(), 3);

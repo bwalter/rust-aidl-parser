@@ -8,18 +8,14 @@ Const(
   const_type: Type(
     name: "TypeName",
     kind: Custom,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
   value: "123",
   annotations: [
     Annotation(
       name: "@AnnotationName",
-      key_values: {},
     ),
   ],
-  doc: None,
   symbol_range: "...",
   full_range: "...",
 )

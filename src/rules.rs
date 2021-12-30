@@ -45,23 +45,23 @@ mod tests {
     }
 
     #[test]
-    fn test_file() -> Result<()> {
+    fn test_aidl() -> Result<()> {
         let input = r#"package x.y.z;
             import a.b.c;
             interface MyInterface {}
         "#;
-        assert_parser!(input, rules::aidl::OptFileParser::new());
+        assert_parser!(input, rules::aidl::OptAidlParser::new());
 
         Ok(())
     }
 
     #[test]
-    fn test_file_with_unrecovered_error() -> Result<()> {
+    fn test_aidl_with_unrecovered_error() -> Result<()> {
         use crate::diagnostic::ParseError;
 
         let input = "wrong, wrong and wrong!";
         let lookup = lookup(input);
-        let res = rules::aidl::OptFileParser::new().parse(&lookup, &mut Vec::new(), input);
+        let res = rules::aidl::OptAidlParser::new().parse(&lookup, &mut Vec::new(), input);
 
         assert!(matches!(res, Err(ParseError::InvalidToken { .. })));
 
@@ -69,13 +69,13 @@ mod tests {
     }
 
     #[test]
-    fn test_file_with_recovered_error() -> Result<()> {
+    fn test_aidl_with_recovered_error() -> Result<()> {
         let input = r#"package x.y.z;
                import a.b.c;
                oops_interface MyInterface {}
            "#;
         let mut diagnostics = Vec::new();
-        assert_parser!(input, rules::aidl::OptFileParser::new(), &mut diagnostics);
+        assert_parser!(input, rules::aidl::OptAidlParser::new(), &mut diagnostics);
 
         assert_diagnostics!(diagnostics, @r###"
         [

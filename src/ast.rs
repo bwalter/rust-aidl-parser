@@ -1,15 +1,10 @@
 use core::fmt;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use serde_derive::Serialize;
 
-pub struct Project {
-    pub root_path: PathBuf,
-    pub files: HashMap<ItemKey, File>,
-}
-
 #[derive(Serialize, Clone, Debug, PartialEq)]
-pub struct File {
+pub struct Aidl {
     pub package: Package,
     pub imports: Vec<Import>,
     pub item: Item,
@@ -18,10 +13,34 @@ pub struct File {
 pub type ItemKey = String;
 pub type ItemKeyRef<'a> = &'a str;
 
-impl File {
+impl Aidl {
     // TODO: cache it
     pub fn get_key(&self) -> ItemKey {
         format!("{}.{}", self.package.name, self.item.get_name())
+    }
+
+    pub fn as_interface(&self) -> Option<&Interface> {
+        match &self.item {
+            Item::Interface(i) => Some(i),
+            Item::Parcelable(_) => None,
+            Item::Enum(_) => None,
+        }
+    }
+
+    pub fn as_parcelable(&self) -> Option<&Parcelable> {
+        match &self.item {
+            Item::Interface(_) => None,
+            Item::Parcelable(p) => Some(p),
+            Item::Enum(_) => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&Enum> {
+        match &self.item {
+            Item::Interface(_) => None,
+            Item::Parcelable(_) => None,
+            Item::Enum(e) => Some(e),
+        }
     }
 }
 
@@ -151,7 +170,9 @@ impl Item {
 pub struct Interface {
     pub name: String,
     pub elements: Vec<InterfaceElement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
@@ -161,7 +182,9 @@ pub struct Interface {
 pub struct Parcelable {
     pub name: String,
     pub members: Vec<Member>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
@@ -171,7 +194,9 @@ pub struct Parcelable {
 pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub full_range: Range,
     pub symbol_range: Range,
@@ -181,7 +206,9 @@ pub struct Const {
     pub name: String,
     pub const_type: Type,
     pub value: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
@@ -189,39 +216,33 @@ pub struct Const {
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Method {
+    #[serde(default, skip_serializing_if = "BoolExt::is_true")]
     pub oneway: bool,
     pub name: String,
     pub return_type: Type,
     pub args: Vec<Arg>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
 
-impl Method {
-    pub fn get_signature(&self) -> String {
-        format!(
-            "{} {}({})",
-            self.return_type.name,
-            self.name,
-            self.args
-                .iter()
-                .map(|a| a.arg_type.name.clone())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    }
-}
-
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Arg {
+    #[serde(default, skip_serializing_if = "Direction::is_unspecified")]
     pub direction: Direction,
     pub name: Option<String>,
     pub arg_type: Type,
-    pub doc: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<String>,
+    pub symbol_range: Range,
+    pub full_range: Range,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -230,6 +251,12 @@ pub enum Direction {
     Out(Range),
     InOut(Range),
     Unspecified,
+}
+
+impl Direction {
+    fn is_unspecified(&self) -> bool {
+        matches!(self, Self::Unspecified)
+    }
 }
 
 impl Default for Direction {
@@ -253,10 +280,13 @@ impl fmt::Display for Direction {
 pub struct Member {
     pub name: String,
     pub member_type: Type,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
-    pub symbol_range: Range,
-    pub doc: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<String>,
+    pub symbol_range: Range,
     pub full_range: Range,
 }
 
@@ -269,7 +299,9 @@ impl Member {
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct EnumElement {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
@@ -278,6 +310,7 @@ pub struct EnumElement {
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Annotation {
     pub name: String,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub key_values: HashMap<String, Option<String>>,
 }
 
@@ -297,7 +330,9 @@ pub enum TypeKind {
 pub struct Type {
     pub name: String,
     pub kind: TypeKind,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub generic_types: Vec<Type>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub definition: Option<ItemKey>,
     pub symbol_range: Range,
 }
@@ -373,5 +408,15 @@ impl Type {
             definition: None,
             symbol_range: Range::new(lookup, start, end),
         }
+    }
+}
+
+trait BoolExt {
+    fn is_true(&self) -> bool;
+}
+
+impl BoolExt for bool {
+    fn is_true(&self) -> bool {
+        *self
     }
 }

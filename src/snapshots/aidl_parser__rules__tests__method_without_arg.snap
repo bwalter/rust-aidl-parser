@@ -9,14 +9,9 @@ Method(
   return_type: Type(
     name: "TypeName",
     kind: Custom,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
   args: [],
-  annotations: [],
-  value: None,
-  doc: None,
   symbol_range: "...",
   full_range: "...",
 )

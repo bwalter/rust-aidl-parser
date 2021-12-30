@@ -10,8 +10,6 @@ Type(
     Type(
       name: "Key",
       kind: Custom,
-      generic_types: [],
-      definition: None,
       symbol_range: "...",
     ),
     Type(
@@ -21,15 +19,11 @@ Type(
         Type(
           name: "V",
           kind: Custom,
-          generic_types: [],
-          definition: None,
           symbol_range: "...",
         ),
       ],
-      definition: None,
       symbol_range: "...",
     ),
   ],
-  definition: None,
   symbol_range: "...",
 )

@@ -5,5 +5,4 @@ expression: res
 ---
 Some(Annotation(
   name: "@AnnotationName",
-  key_values: {},
 ))

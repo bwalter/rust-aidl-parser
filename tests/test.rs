@@ -1,8 +1,7 @@
-use aidl_parser::ParseFileResult;
 use anyhow::Result;
 
 #[test]
-fn test_parse() -> Result<()> {
+fn test_parse() {
     let interface_aidl = r#"
         package com.bwa.aidl_test;
     
@@ -12,7 +11,8 @@ fn test_parse() -> Result<()> {
         import com.bwa.aidl_test.UnusedEnum;
 
         interface MyInterface {
-            String get_name(in MyParcelable);
+            void method1(in MyParcelable);
+            String method2();
         }
     "#;
 
@@ -36,58 +36,47 @@ fn test_parse() -> Result<()> {
 
     // Parse AIDL files
     let mut parser = aidl_parser::Parser::new();
-    parser.add_content(0, interface_aidl);
-    parser.add_content(1, parcelable_aidl);
-    parser.add_content(2, enum_aidl);
-    let res = parser.parse();
+    parser.add_content("id1", interface_aidl);
+    parser.add_content("id2", parcelable_aidl);
+    parser.add_content("id3", enum_aidl);
+    let res = parser.validate();
 
     // For each file, 1 result
     assert_eq!(res.len(), 3);
 
-    // Check AST
-    use aidl_parser::ast;
-    assert!(matches!(res.get(&0), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Interface(interface @ ast::Interface { .. }),
-            ..
-        }),
-        ..
-    }) if interface.name == "MyInterface"));
-    assert!(matches!(res.get(&1), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
-            ..
-        }),
-        ..
-    }) if parcelable.name == "MyParcelable"));
-    assert!(matches!(res.get(&2), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
-            ..
-        }),
-        ..
-    }) if enum_.name == "UnusedEnum"));
+    // Check AIDL 1
+    let ast1 = res.get("id1").expect("result").ast.as_ref().expect("ast");
+    let interface = ast1.as_interface().expect("interface");
+    assert_eq!(interface.name, "MyInterface");
+
+    // Check AIDL 2
+    let ast2 = res.get("id2").expect("result").ast.as_ref().expect("ast");
+    let parcelable = ast2.as_parcelable().expect("parcelable");
+    assert_eq!(parcelable.name, "MyParcelable");
+
+    // Check AIDL 3
+    let ast3 = res.get("id3").expect("result").ast.as_ref().expect("ast");
+    let enum_ = ast3.as_enum().expect("enum");
+    assert_eq!(enum_.name, "UnusedEnum");
 
     // Check diagnostics
-    assert_eq!(res[&0].diagnostics.len(), 3);
-    assert!(res[&0].diagnostics[0].message.contains("Duplicated import"));
-    assert!(res[&0].diagnostics[1].message.contains("Unresolved import"));
-    assert!(res[&0].diagnostics[2].message.contains("Unused import"));
-    assert!(res[&1].diagnostics.is_empty());
-    assert!(res[&2].diagnostics.is_empty());
+    assert_eq!(res["id1"].diagnostics.len(), 3);
+    assert!(res["id1"].diagnostics[0]
+        .message
+        .contains("Duplicated import"));
+    assert!(res["id1"].diagnostics[1]
+        .message
+        .contains("Unresolved import"));
+    assert!(res["id1"].diagnostics[2].message.contains("Unused import"));
+    assert!(res["id2"].diagnostics.is_empty());
+    assert!(res["id3"].diagnostics.is_empty());
 
-    insta::assert_ron_snapshot!(res[&0].file.as_ref().unwrap(), {
-        ".**.symbol_range" => "...",
-        ".**.full_range" => "...",
-    });
-    insta::assert_ron_snapshot!(res[&0].diagnostics, {
-        ".**.range" => "...",
-    });
-
-    Ok(())
+    // Traverse AST
+    let mut methods = Vec::new();
+    aidl_parser::traverse::walk_methods(ast1, |m| methods.push(m));
+    assert_eq!(methods.len(), 2);
+    assert_eq!(methods[0].name, "method1");
+    assert_eq!(methods[1].name, "method2");
 }
 
 #[test]
@@ -96,10 +85,10 @@ fn test_parse_error() -> Result<()> {
 
     let mut parser = aidl_parser::Parser::new();
     parser.add_content(0, aidl);
-    let parse_results = parser.parse();
+    let parse_results = parser.validate();
 
     assert_eq!(parse_results.len(), 1);
-    assert!(parse_results[&0].file.is_none());
+    assert!(parse_results[&0].ast.is_none());
 
     insta::assert_ron_snapshot!(parse_results[&0].diagnostics, @r###"
     [

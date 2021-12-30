@@ -1,38 +1,17 @@
-# aidl-parser
+[![Github.com](https://img.shields.io/badge/bwalter-rust--aidl--parser-blue?logo=github)](https://github.com/bwalter/rust-aidl-parser)
+[![Crates.io](https://img.shields.io/crates/v/aidl-parser.svg?logo=rust)](https://crates.io/crates/aidl-parser)
+[![Documentation](https://img.shields.io/docsrs/aidl-parser?label=docs.rs)](https://docs.rs/aidl-parser)
+[![Github Actions](https://img.shields.io/github/workflow/status/bwalter/rust-aidl-parser/main?labels=CI)](https://github.com/bwalter/rust-aidl-parser)
 
-AIDL parser for Rust.
+# AIDL parser for Rust
 
-## Features
+Parse and validate AIDL files and return for each one an AST and diagnostics.
 
-- Generate AIDL AST with all supported elements (including Javadoc)
-- Recover errors
-- Validate project
-- Provide diagnostics (errors and warnings) with location
+To use it, you need to create a [`Parser`] instance, add the content and
+get the validation results.
 
-## AIDL language support
-
-It is currently a best effort to provide good diagnostic and navigation based on AIDL documentation.
-
-The code base is (much) simpler than the official implementation but (arguably) more readable and easier to understand and does not support legacy options. It is planned to gradually improve language support to cover most of the functionalities of the AIDL language.
-
-If you need specific support, please do not hesitate to submit an issue or a pull request.
-
-Link to AOSP AIDL implementation:
-https://android.googlesource.com/platform/system/tools/aidl/+/refs/heads/master/
-
-## TODO
-- Document how to display diagnostics (e.g. with CodeSpan)
-- Annotation attached to primitive type
-- union (Android 12)
-- nested types (Android T)
-- Parcelable declaration(= forward declaration), with optional annotations
-- Allow annotations for list/map parameters?
-- Android types: android.os.Parcelable, IBinder, FileDescriptor, ParcelFileDescriptor, 
-- Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
-- validate:
-  - duplicated method names
-  - duplicated method values
-  - file name matching item name
+For convenience, the returned AST can be traversed via the helper functions
+available in the [`traverse`] module.
 
 ## Usage
 
@@ -43,90 +22,69 @@ Add to `Cargo.toml`:
 aidl-parser = "0.3.0"
 ```
 
-## Example
+Create parser, analyze results:
 
-```rust
-#[test]
-fn test_parse() -> Result<()> {
-    let interface_aidl = r#"
-        package com.bwa.aidl_test;
-    
-        import com.bwa.aidl_test.MyParcelable;
-        import com.bwa.aidl_test.MyParcelable;
-        import com.bwa.aidl_test.NonExisting;
-        import com.bwa.aidl_test.UnusedEnum;
-
-        interface MyInterface {
-            String get_name(MyParcelable);
-        }
-    "#;
-
-    let parcelable_aidl = r#"
-        package com.bwa.aidl_test;
-    
-        parcelable MyParcelable {
-            String name;
-            byte[] data;
-        }
-    "#;
-
-    let enum_aidl = r#"
-        package com.bwa.aidl_test;
-    
-        enum UnusedEnum {
-            VALUE1 = 1,
-            VALUE2 = 2,
-        }
-    "#;
-
-    // Parse AIDL files
-    let mut parser = aidl_parser::Parser::new();
-    parser.add_content(0, interface_aidl);
-    parser.add_content(1, parcelable_aidl);
-    parser.add_content(2, enum_aidl);
-    let res = parser.parse();
-
-    // For each file, 1 result
-    assert_eq!(res.len(), 3);
-
-    // Check AST
-    use aidl_parser::ast;
-    assert!(matches!(res.get(&0), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Interface(interface @ ast::Interface { .. }),
-            ..
-        }),
-        ..
-    }) if interface.name == "MyInterface"));
-    assert!(matches!(res.get(&1), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Parcelable(parcelable @ ast::Parcelable { .. }),
-            ..
-        }),
-        ..
-    }) if parcelable.name == "MyParcelable"));
-    assert!(matches!(res.get(&2), Some(ParseFileResult {
-        file: Some(ast::File {
-            package: ast::Package { .. },
-            item: ast::Item::Enum(enum_ @ ast::Enum { .. }),
-            ..
-        }),
-        ..
-    }) if enum_.name == "UnusedEnum"));
-
-    // Check diagnostics
-    assert_eq!(res[&0].diagnostics.len(), 3);
-    assert!(res[&0].diagnostics[0].message.contains("Duplicated import"));
-    assert!(res[&0].diagnostics[1].message.contains("Unresolved import"));
-    assert!(res[&0].diagnostics[2].message.contains("Unused import"));
-    assert!(res[&1].diagnostics.is_empty());
-    assert!(res[&2].diagnostics.is_empty());
-
-    Ok(())
 ```
+use aidl_parser::{traverse, Parser};
+
+// Parse AIDL contents
+let mut parser = Parser::new();
+parser.add_content("id1", "package test.pkg; interface MyInterface { void hello(String); }");
+parser.add_content("id2", "package test.pkg; parcelable Parcelable { int myField; }");
+let results = parser.validate();
+
+// Display results
+for (id, res) in &results {
+    println!("{}: AST = {:#?}", id, res.ast);
+    println!("{}: Diagnostics = {:#?}", id, res.diagnostics);
+}
+
+// Traverse AST
+let ast1 = results["id1"].ast.as_ref().expect("missing AST");
+traverse::walk_symbols(ast1, traverse::SymbolFilter::All, |s| println!("- Symbol: {:#?}", s));
+```
+
+## AIDL language support
+
+It is currently a best effort to provide good diagnostic and navigation based on AIDL documentation.
+
+The code base is (much) simpler than the official implementation and (arguably) more readable, easier to understand and does not support legacy options. It is planned to gradually improve language support to cover most of the functionalities of the AIDL language.
+
+To get more insight on the current grammar and validation, please refer to:
+- grammar (lalrpop): <https://github.com/bwalter/rust-aidl-parser/blob/main/src/aidl.lalrpop>
+- unit-tests for grammar: <https://github.com/bwalter/rust-aidl-parser/blob/main/src/rules.rs>
+- validation incl. unit-tests: <https://github.com/bwalter/rust-aidl-parser/blob/main/src/validation.rs>
+
+If you need specific support, please do not hesitate to submit an issue or a pull request.
+
+Link to AOSP AIDL implementation:
+<https://android.googlesource.com/platform/system/tools/aidl/+/refs/heads/master>
+
+## TODO
+- Document how to display diagnostics (e.g. with CodeSpan)
+- Annotation attached to primitive type
+- union (Android 12)
+- nested types (Android T)
+- Parcelable declaration(= forward declaration), with optional annotations
+- Allow annotations for list/map parameters?
+- Android types: ParcelableHolder, IBinder, FileDescriptor, ParcelFileDescriptor, 
+- Ignore Java-like imports: "android.os.IInterface", "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",
+      "android.content.Context", "java.lang.String", "java.lang.CharSequence" (but add a warning)
+- Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
+- Allow array of parcelable/interface? and check for enums in List or Map
+- validate:
+  - duplicated method names
+  - duplicated method values
+  - file name matching item name
+  - ParcelableHolder cannot (currently) be given as an argument?
+  - ParcelableFileDescriptor cannot be out (because it is not default-constructible)
+- Add reserved keywords for C++ and Java: "break",  "case",   "catch", "char",     "class",  "continue", "default",
+    "do",     "double", "else",  "enum",     "false",  "float",    "for",
+    "goto",   "if",     "int",   "long",     "new",    "private",  "protected",
+    "public", "return", "short", "static",   "switch", "this",     "throw",
+    "true",   "try",    "void",  "volatile", "while"
+    (but also warnings for Rust)
 
 ## License
 
-This project is licensed under the [MIT license](LICENSE).
+This project is licensed under the MIT license.

@@ -9,12 +9,9 @@ Method(
   return_type: Type(
     name: "void",
     kind: Void,
-    generic_types: [],
-    definition: None,
     symbol_range: "...",
   ),
   args: [],
-  annotations: [],
   value: Some(123),
   doc: Some("Method documentation"),
   symbol_range: "...",
