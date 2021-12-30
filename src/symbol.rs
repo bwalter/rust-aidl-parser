@@ -68,7 +68,7 @@ impl<'a> Symbol<'a> {
                     t.name,
                     t.generic_types
                         .iter()
-                        .map(|t| get_type_str(t))
+                        .map(get_type_str)
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -111,7 +111,7 @@ impl<'a> Symbol<'a> {
                 }
                 t.generic_types
                     .iter()
-                    .map(|t| get_type_str(t))
+                    .map(get_type_str)
                     .collect::<Vec<_>>()
                     .join(", ")
             }
