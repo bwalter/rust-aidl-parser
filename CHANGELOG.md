@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.4.0] - 2021-12-30
+
 - Improved documentation
 - New public module traverse to help visiting AST
 - Refactor validation
