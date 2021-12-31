@@ -117,4 +117,71 @@ impl<'a> Symbol<'a> {
             }
         })
     }
+
+    pub fn get_signature(&self) -> Option<String> {
+        fn get_type_str(t: &ast::Type) -> String {
+            if t.generic_types.is_empty() {
+                t.name.clone()
+            } else {
+                format!(
+                    "{}<{}>",
+                    t.name,
+                    t.generic_types
+                        .iter()
+                        .map(get_type_str)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        }
+
+        fn get_arg_str(a: &ast::Arg) -> String {
+            let direction_str = match a.direction {
+                ast::Direction::In(_) => "in ",
+                ast::Direction::Out(_) => "out ",
+                ast::Direction::InOut(_) => "inout ",
+                ast::Direction::Unspecified => "",
+            };
+
+            let suffix = a
+                .name
+                .as_ref()
+                .map(|s| format!(" {}", s))
+                .unwrap_or_default();
+
+            format!("{}{}{}", direction_str, get_type_str(&a.arg_type), suffix)
+        }
+
+        Some(match self {
+            Symbol::Interface(i) => format!("interface {}", i.name),
+            Symbol::Parcelable(p) => format!("parcelable {}", p.name),
+            Symbol::Enum(e) => format!("enum {}", e.name),
+            Symbol::Method(m) => {
+                format!(
+                    "{} {}({})",
+                    get_type_str(&m.return_type),
+                    m.name,
+                    m.args
+                        .iter()
+                        .map(get_arg_str)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Symbol::Arg(a) => get_arg_str(a),
+            Symbol::Const(c) => format!("const {} {}", get_type_str(&c.const_type), c.name),
+            Symbol::Member(m) => format!("{} {}", get_type_str(&m.member_type), m.name),
+            Symbol::EnumElement(el) => el.name.clone(),
+            Symbol::Type(t) => {
+                if t.generic_types.is_empty() {
+                    return None;
+                }
+                t.generic_types
+                    .iter()
+                    .map(get_type_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        })
+    }
 }
