@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use crate::ast;
 use crate::symbol::Symbol;
 
@@ -17,63 +19,134 @@ pub enum SymbolFilter {
 /// This function works like the visitor pattern. The depth is determined
 /// by the given filter.
 pub fn walk_symbols<'a, F: FnMut(Symbol<'a>)>(ast: &'a ast::Aidl, filter: SymbolFilter, mut f: F) {
+    walk_symbols_with_control_flow(ast, filter, |smb| -> ControlFlow<()> {
+        f(smb);
+        ControlFlow::Continue(())
+    });
+}
+
+pub fn find_symbol<'a, F>(ast: &'a ast::Aidl, filter: SymbolFilter, mut f: F) -> Option<Symbol<'a>>
+where
+    F: FnMut(&Symbol<'a>) -> bool,
+{
+    let res = walk_symbols_with_control_flow(ast, filter, |smb| -> ControlFlow<Symbol<'a>> {
+        if f(&smb) {
+            ControlFlow::Break(smb)
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
+
+    match res {
+        ControlFlow::Continue(_) => None,
+        ControlFlow::Break(smb) => Some(smb),
+    }
+}
+
+pub fn find_symbol_by_position(
+    ast: &ast::Aidl,
+    filter: SymbolFilter,
+    line_col: (usize, usize),
+) -> Option<Symbol> {
+    find_symbol(ast, filter, |smb| range_contains(smb.get_range(), line_col))
+}
+
+fn walk_symbols_with_control_flow<'a, V, F>(
+    ast: &'a ast::Aidl,
+    filter: SymbolFilter,
+    mut f: F,
+) -> ControlFlow<V>
+where
+    F: FnMut(Symbol<'a>) -> ControlFlow<V>,
+{
     macro_rules! visit_type_helper {
         ($t:expr, $f:ident) => {
-            $f(Symbol::Type($t));
-            $t.generic_types.iter().for_each(|t| $f(Symbol::Type(t)));
+            $f(Symbol::Type($t))?;
+            $t.generic_types
+                .iter()
+                .try_for_each(|t| $f(Symbol::Type(t)));
         };
     }
 
     match ast.item {
         ast::Item::Interface(ref i) => {
-            f(Symbol::Interface(i));
+            f(Symbol::Interface(i))?;
             if let SymbolFilter::ItemsOnly = filter {
-                return;
+                return ControlFlow::Continue(());
             }
 
-            i.elements.iter().for_each(|el| match el {
+            i.elements.iter().try_for_each(|el| match el {
                 ast::InterfaceElement::Method(m) => {
-                    f(Symbol::Method(m));
+                    f(Symbol::Method(m))?;
                     if let SymbolFilter::All = filter {
                         visit_type_helper!(&m.return_type, f);
-                        m.args.iter().for_each(|arg| {
+                        m.args.iter().try_for_each(|arg| {
+                            f(Symbol::Arg(arg))?;
                             visit_type_helper!(&arg.arg_type, f);
-                        })
+                            ControlFlow::Continue(())
+                        })?;
                     }
+                    ControlFlow::Continue(())
                 }
                 ast::InterfaceElement::Const(c) => {
-                    f(Symbol::Const(c));
+                    f(Symbol::Const(c))?;
                     if let SymbolFilter::All = filter {
                         visit_type_helper!(&c.const_type, f);
                     }
+                    ControlFlow::Continue(())
                 }
-            });
+            })?;
         }
         ast::Item::Parcelable(ref p) => {
-            f(Symbol::Parcelable(p));
+            f(Symbol::Parcelable(p))?;
             if let SymbolFilter::ItemsOnly = filter {
-                return;
+                return ControlFlow::Continue(());
             }
 
-            p.members.iter().for_each(|m| {
-                f(Symbol::Member(m));
+            p.members.iter().try_for_each(|m| {
+                f(Symbol::Member(m))?;
 
                 if let SymbolFilter::All = filter {
                     visit_type_helper!(&m.member_type, f);
                 }
-            });
+
+                ControlFlow::Continue(())
+            })?;
         }
         ast::Item::Enum(ref e) => {
-            f(Symbol::Enum(e));
+            f(Symbol::Enum(e))?;
             if let SymbolFilter::ItemsOnly = filter {
-                return;
+                return ControlFlow::Continue(());
             }
 
-            e.elements.iter().for_each(|el| {
-                f(Symbol::EnumElement(el));
-            });
+            e.elements.iter().try_for_each(|el| {
+                f(Symbol::EnumElement(el))?;
+                ControlFlow::Continue(())
+            })?;
         }
     }
+
+    ControlFlow::Continue(())
+}
+
+fn range_contains(range: &ast::Range, line_col: (usize, usize)) -> bool {
+    if range.start.line_col.0 > line_col.0 {
+        return false;
+    }
+
+    if range.start.line_col.0 == line_col.0 && range.start.line_col.1 > line_col.1 {
+        return false;
+    }
+
+    if range.end.line_col.0 < line_col.0 {
+        return false;
+    }
+
+    if range.end.line_col.0 == line_col.0 && range.end.line_col.1 < line_col.1 {
+        return false;
+    }
+
+    true
 }
 
 /// Traverse the AST and provide the types to the given closure

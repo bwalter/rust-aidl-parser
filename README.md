@@ -24,7 +24,7 @@ aidl-parser = "0.4.0"
 
 Create parser, analyze results:
 
-```
+```aidl
 use aidl_parser::{traverse, Parser};
 
 // Parse AIDL contents

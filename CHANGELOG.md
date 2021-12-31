@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Introduce traverse::find_symbol() and traverse::find_symbol_by_position()
+
 ## [0.4.0] - 2021-12-30
 
 - Improved documentation
