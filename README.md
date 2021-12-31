@@ -7,11 +7,11 @@
 
 Parse and validate AIDL files and return for each one an AST and diagnostics.
 
-To use it, you need to create a [`Parser`] instance, add the content and
+To use it, you need to create a [Parser] instance, add the content and
 get the validation results.
 
 For convenience, the returned AST can be traversed via the helper functions
-available in the [`traverse`] module.
+available in the [traverse] module.
 
 ## Usage
 
@@ -24,7 +24,7 @@ aidl-parser = "0.4.0"
 
 Create parser, analyze results:
 
-```aidl
+```rust
 use aidl_parser::{traverse, Parser};
 
 // Parse AIDL contents
@@ -78,12 +78,6 @@ Link to AOSP AIDL implementation:
   - file name matching item name
   - ParcelableHolder cannot (currently) be given as an argument?
   - ParcelableFileDescriptor cannot be out (because it is not default-constructible)
-- Add reserved keywords for C++ and Java: "break",  "case",   "catch", "char",     "class",  "continue", "default",
-    "do",     "double", "else",  "enum",     "false",  "float",    "for",
-    "goto",   "if",     "int",   "long",     "new",    "private",  "protected",
-    "public", "return", "short", "static",   "switch", "this",     "throw",
-    "true",   "try",    "void",  "volatile", "while"
-    (but also warnings for Rust)
 
 ## License
 

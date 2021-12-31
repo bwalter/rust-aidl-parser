@@ -411,6 +411,10 @@ match {
     // Signs
     ";",  ",", "{", "}", "(", ")", "[", "]", "<", ">", "=", ".", "-",
 } else {
+    // Reserved keywords
+    // Note: currently only for Java and C++ but Rust should be ideally covered, too
+    r"(break|case|catch|char|class|continue|default|do|double|else|enum|false|float|for|goto|if|int|long|new|private|protected|public|return|short|static|switch|this|throw|true|try|void|volatile|while)" => RESERVED_KEYWORD,
+} else {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => IDENT,
 } else {
     r"[0-9]+" => INTEGER,

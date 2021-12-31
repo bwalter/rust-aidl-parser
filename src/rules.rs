@@ -711,4 +711,14 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_reserved_keywords() -> Result<()> {
+        let input = "package a.for.b;";
+        assert!(rules::aidl::PackageParser::new()
+            .parse(&lookup(input), &mut Vec::new(), input)
+            .is_err());
+
+        Ok(())
+    }
 }
