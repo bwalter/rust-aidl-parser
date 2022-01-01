@@ -225,6 +225,7 @@ pub struct Method {
     pub annotations: Vec<Annotation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<u32>,
+    pub value_range: Range,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,

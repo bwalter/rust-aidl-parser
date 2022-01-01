@@ -13,6 +13,16 @@ Method(
   ),
   args: [],
   value: Some(123),
+  value_range: Range(
+    start: Position(
+      offset: 20,
+      line_col: (1, 21),
+    ),
+    end: Position(
+      offset: 25,
+      line_col: (1, 26),
+    ),
+  ),
   symbol_range: "...",
   full_range: "...",
 )

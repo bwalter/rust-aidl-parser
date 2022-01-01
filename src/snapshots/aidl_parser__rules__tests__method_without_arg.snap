@@ -12,6 +12,16 @@ Method(
     symbol_range: "...",
   ),
   args: [],
+  value_range: Range(
+    start: Position(
+      offset: 19,
+      line_col: (1, 20),
+    ),
+    end: Position(
+      offset: 19,
+      line_col: (1, 20),
+    ),
+  ),
   symbol_range: "...",
   full_range: "...",
 )

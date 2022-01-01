@@ -27,6 +27,16 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
+      value_range: Range(
+        start: Position(
+          offset: 223,
+          line_col: (10, 29),
+        ),
+        end: Position(
+          offset: 223,
+          line_col: (10, 29),
+        ),
+      ),
       doc: Some("method1 documentation"),
       symbol_range: "...",
       full_range: "...",
@@ -51,6 +61,16 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
+      value_range: Range(
+        start: Position(
+          offset: 296,
+          line_col: (13, 26),
+        ),
+        end: Position(
+          offset: 296,
+          line_col: (13, 26),
+        ),
+      ),
       symbol_range: "...",
       full_range: "...",
     )),

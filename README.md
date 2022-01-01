@@ -73,8 +73,6 @@ Link to AOSP AIDL implementation:
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - Allow array of parcelable/interface? and check for enums in List or Map
 - validate:
-  - duplicated method names
-  - duplicated method values
   - file name matching item name
   - ParcelableHolder cannot (currently) be given as an argument?
   - ParcelableFileDescriptor cannot be out (because it is not default-constructible)

@@ -15,6 +15,16 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
+      value_range: Range(
+        start: Position(
+          offset: 47,
+          line_col: (2, 29),
+        ),
+        end: Position(
+          offset: 47,
+          line_col: (2, 29),
+        ),
+      ),
       symbol_range: "...",
       full_range: "...",
     )),
@@ -27,6 +37,16 @@ Interface(
         symbol_range: "...",
       ),
       args: [],
+      value_range: Range(
+        start: Position(
+          offset: 74,
+          line_col: (3, 26),
+        ),
+        end: Position(
+          offset: 74,
+          line_col: (3, 26),
+        ),
+      ),
       symbol_range: "...",
       full_range: "...",
     )),

@@ -3,6 +3,9 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Check for duplicated method name
+- Check for duplicated method id
+- Check for mixed usage of methods with/without id
 - Introduce traverse::find_symbol() and traverse::find_symbol_by_position()
 
 ## [0.4.0] - 2021-12-30

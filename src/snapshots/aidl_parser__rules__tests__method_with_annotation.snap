@@ -17,6 +17,16 @@ Method(
       name: "@AnnotationName",
     ),
   ],
+  value_range: Range(
+    start: Position(
+      offset: 31,
+      line_col: (1, 32),
+    ),
+    end: Position(
+      offset: 31,
+      line_col: (1, 32),
+    ),
+  ),
   symbol_range: "...",
   full_range: "...",
 )

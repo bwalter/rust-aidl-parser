@@ -184,6 +184,7 @@ pub(crate) Method: ast::Method = {
                 },
                 None => None,
             },
+            value_range: ast::Range::new(&lookup, vp1, vp2),
             full_range: ast::Range::new(&lookup, fp1, fp2),
             symbol_range: ast::Range::new(&lookup, sp1, sp2),
         }

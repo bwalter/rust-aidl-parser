@@ -23,6 +23,16 @@ Method(
       full_range: "...",
     ),
   ],
+  value_range: Range(
+    start: Position(
+      offset: 30,
+      line_col: (1, 31),
+    ),
+    end: Position(
+      offset: 30,
+      line_col: (1, 31),
+    ),
+  ),
   symbol_range: "...",
   full_range: "...",
 )

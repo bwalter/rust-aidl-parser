@@ -223,8 +223,103 @@ fn check_methods(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let mut method_names: HashMap<String, &ast::Method> = HashMap::new();
+    let mut first_method_without_id: Option<&ast::Method> = None;
+    let mut first_method_with_id: Option<&ast::Method> = None;
+    let mut method_ids: HashMap<u32, &ast::Method> = HashMap::new();
+
     traverse::walk_methods(file, |method: &ast::Method| {
+        // Check individual method (e.g. return value, args, ...)
         check_method(method, defined, diagnostics);
+
+        if let Some(previous) = method_names.get(&method.name) {
+            // Found already exists => ERROR
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                range: method.symbol_range.clone(),
+                message: format!("Duplicated method name `{}`", method.name),
+                context_message: Some("duplicated method name".to_owned()),
+                hint: None,
+                related_infos: Vec::from([diagnostic::RelatedInfo {
+                    message: "previous location".to_owned(),
+                    range: previous.symbol_range.clone(),
+                }]),
+            });
+            return;
+        }
+
+        method_names.insert(method.name.clone(), method);
+
+        let is_mixed_now_with_id = first_method_with_id.is_none()
+            && first_method_without_id.is_some()
+            && method.value.is_some();
+        let is_mixed_now_without_id =
+            first_method_without_id.is_none() && !method_ids.is_empty() && method.value.is_none();
+
+        if is_mixed_now_with_id || is_mixed_now_without_id {
+            let info_previous = if is_mixed_now_with_id {
+                diagnostic::RelatedInfo {
+                    message: "method without id".to_owned(),
+                    range: first_method_without_id
+                        .as_ref()
+                        .unwrap()
+                        .value_range
+                        .clone(),
+                }
+            } else {
+                diagnostic::RelatedInfo {
+                    message: "method with id".to_owned(),
+                    range: first_method_with_id.as_ref().unwrap().value_range.clone(),
+                }
+            };
+
+            // Methods are mixed (with/without id)
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                range: method.value_range.clone(),
+                message: String::from("Mixed usage of method ids"),
+                context_message: None,
+                hint: Some(String::from(
+                    "Either all methods should have an id or none of them",
+                )),
+                related_infos: Vec::from([info_previous]),
+            });
+        }
+
+        if method.value.is_some() {
+            // First method with id
+            if first_method_with_id.is_none() {
+                first_method_with_id = Some(method);
+            }
+        } else {
+            // First method without id
+            if first_method_without_id.is_none() {
+                first_method_without_id = Some(method);
+            }
+        }
+
+        if let Some(id) = method.value {
+            match method_ids.entry(id) {
+                hash_map::Entry::Occupied(oe) => {
+                    // Method id already defined
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        range: method.value_range.clone(),
+                        message: String::from("Duplicated method id"),
+                        context_message: Some("duplicated import".to_owned()),
+                        hint: None,
+                        related_infos: Vec::from([diagnostic::RelatedInfo {
+                            range: oe.get().value_range.clone(),
+                            message: String::from("previous method"),
+                        }]),
+                    });
+                }
+                hash_map::Entry::Vacant(ve) => {
+                    // First method with this id
+                    ve.insert(method);
+                }
+            }
+        }
     });
 }
 
@@ -517,7 +612,10 @@ fn check_map_value(
 
 #[cfg(test)]
 mod tests {
+    use self::utils::create_method_with_name_and_id;
+
     use super::*;
+    use crate::ast;
 
     #[test]
     fn test_check_imports() {
@@ -737,73 +835,88 @@ mod tests {
     #[test]
     fn test_check_method() {
         // Non-async method with return value -> ok
-        let method = ast::Method {
+        let void_method = ast::Method {
             oneway: false,
             name: "test".into(),
-            return_type: ast::Type {
-                name: "int".into(),
-                kind: ast::TypeKind::Primitive,
-                generic_types: Vec::new(),
-                definition: None,
-                symbol_range: utils::create_range(0),
-            },
+            return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
             args: Vec::new(),
             annotations: Vec::new(),
             value: None,
+            value_range: utils::create_range(0),
             doc: None,
             symbol_range: utils::create_range(0),
             full_range: utils::create_range(0),
         };
         let mut diagnostics = Vec::new();
-        check_method(&method, &HashMap::new(), &mut diagnostics);
+        check_method(&void_method, &HashMap::new(), &mut diagnostics);
         assert_eq!(diagnostics.len(), 0);
 
-        // Async method returning void -> ok
-        let method = ast::Method {
-            oneway: true,
-            name: "test".into(),
-            return_type: ast::Type {
-                name: "void".into(),
-                kind: ast::TypeKind::Void,
-                generic_types: Vec::new(),
-                definition: None,
-                symbol_range: utils::create_range(0),
-            },
-            args: Vec::new(),
-            annotations: Vec::new(),
-            value: None,
-            doc: None,
-            symbol_range: utils::create_range(0),
-            full_range: utils::create_range(0),
-        };
+        // Oneway method returning void -> ok
+        let mut oneway_void_method = void_method.clone();
+        oneway_void_method.oneway = true;
         let mut diagnostics = Vec::new();
-        check_method(&method, &HashMap::new(), &mut diagnostics);
+        check_method(&oneway_void_method, &HashMap::new(), &mut diagnostics);
         assert_eq!(diagnostics.len(), 0);
 
         // Async method with return value -> error
-        let method = ast::Method {
-            oneway: true,
-            name: "test".into(),
-            return_type: ast::Type {
-                name: "int".into(),
-                kind: ast::TypeKind::Primitive,
-                generic_types: Vec::new(),
-                definition: None,
-                symbol_range: utils::create_range(0),
-            },
-            args: Vec::new(),
-            annotations: Vec::new(),
-            value: None,
-            doc: None,
-            symbol_range: utils::create_range(0),
-            full_range: utils::create_range(0),
-        };
+        let mut oneway_int_method = oneway_void_method.clone();
+        oneway_int_method.return_type = utils::create_int(0);
         let mut diagnostics = Vec::new();
-        check_method(&method, &HashMap::new(), &mut diagnostics);
+        check_method(&oneway_int_method, &HashMap::new(), &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0]
             .message
             .contains("Invalid return type of async"));
+    }
+
+    #[test]
+    fn test_check_method_ids() {
+        let methods = Vec::from([
+            create_method_with_name_and_id("method0", None, 10),
+            create_method_with_name_and_id("method1", Some(1), 20),
+            create_method_with_name_and_id("method2", Some(2), 30),
+            create_method_with_name_and_id("method2", Some(3), 40),
+            create_method_with_name_and_id("method3", Some(1), 50),
+        ]);
+
+        let ast = ast::Aidl {
+            package: ast::Package {
+                name: "test.package".into(),
+                symbol_range: utils::create_range(0),
+            },
+            imports: Vec::new(),
+            item: ast::Item::Interface(ast::Interface {
+                name: "testMethod".into(),
+                elements: methods
+                    .into_iter()
+                    .map(ast::InterfaceElement::Method)
+                    .collect(),
+                annotations: Vec::new(),
+                doc: None,
+                full_range: utils::create_range(0),
+                symbol_range: utils::create_range(0),
+            }),
+        };
+
+        let mut diagnostics = Vec::new();
+        check_methods(&ast, &HashMap::new(), &mut diagnostics);
+
+        assert_eq!(diagnostics.len(), 3);
+
+        // Mixed methods with/without id
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Error);
+        assert!(diagnostics[0].message.contains("Mixed usage of method id"));
+        assert_eq!(diagnostics[0].range.start.line_col.0, 21);
+
+        // Duplicated method name
+        assert_eq!(diagnostics[1].kind, DiagnosticKind::Error);
+        assert!(diagnostics[1].message.contains("Duplicated method name"));
+        assert_eq!(diagnostics[1].range.start.line_col.0, 40);
+
+        // Duplicated method id
+        assert_eq!(diagnostics[2].kind, DiagnosticKind::Error);
+        assert!(diagnostics[2].message.contains("Duplicated method id"));
+        assert_eq!(diagnostics[2].range.start.line_col.0, 51);
     }
 
     #[test]
@@ -814,6 +927,7 @@ mod tests {
             return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
             args: Vec::new(),
             value: None,
+            value_range: utils::create_range(0),
             annotations: Vec::new(),
             doc: None,
             symbol_range: utils::create_range(0),
@@ -1036,6 +1150,24 @@ mod tests {
             }
         }
 
+        pub fn create_method_with_name_and_id(
+            name: &str,
+            id: Option<u32>,
+            line: usize,
+        ) -> ast::Method {
+            ast::Method {
+                oneway: false,
+                name: name.into(),
+                return_type: create_int(0),
+                args: Vec::new(),
+                annotations: Vec::new(),
+                value: id,
+                value_range: create_range(line + 1),
+                doc: None,
+                symbol_range: create_range(line),
+                full_range: create_range(line),
+            }
+        }
         pub fn create_arg(arg_type: ast::Type, direction: ast::Direction) -> ast::Arg {
             ast::Arg {
                 direction,
