@@ -5,13 +5,13 @@
 
 # AIDL parser for Rust
 
-Parse and validate AIDL files and return for each one an AST and diagnostics.
+Parse and validate AIDL files (or contents).
 
-To use it, you need to create a [Parser] instance, add the content and
-get the validation results.
+For each AIDL file, the parser will return:
+- the AST (Abstract Syntax Tree)
+- diagnostics (errors and warnings)
 
-For convenience, the returned AST can be traversed via the helper functions
-available in the [traverse] module.
+The [traverse] module contains various helper functions to extract informations from the AST.
 
 ## Usage
 
@@ -46,16 +46,14 @@ traverse::walk_symbols(ast1, traverse::SymbolFilter::All, |s| println!("- Symbol
 
 ## AIDL language support
 
-It is currently a best effort to provide good diagnostic and navigation based on AIDL documentation.
+It is currently a best effort to provide good diagnostic and navigation based on the official AIDL documentation and AOSP implementation.
 
-The code base is (much) simpler than the official implementation and (arguably) more readable, easier to understand and does not support legacy options. It is planned to gradually improve language support to cover most of the functionalities of the AIDL language.
+It is planned to gradually improve language support to cover all the AIDL functionalities. If you encounter any issue or missing functionality while is not mentioned in the README, it is considered as a bug (please submit an issue or a pull request!).
 
 To get more insight on the current grammar and validation, please refer to:
 - grammar (lalrpop): <https://github.com/bwalter/rust-aidl-parser/blob/main/src/aidl.lalrpop>
 - unit-tests for grammar: <https://github.com/bwalter/rust-aidl-parser/blob/main/src/rules.rs>
 - validation incl. unit-tests: <https://github.com/bwalter/rust-aidl-parser/blob/main/src/validation.rs>
-
-If you need specific support, please do not hesitate to submit an issue or a pull request.
 
 Link to AOSP AIDL implementation:
 <https://android.googlesource.com/platform/system/tools/aidl/+/refs/heads/master>
