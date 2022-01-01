@@ -1,6 +1,6 @@
 [package]
 name = "aidl-parser"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Benoit Walter <b.walter@meerun.de>"]
 license = "MIT"
 edition = "2021"
