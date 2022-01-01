@@ -7,12 +7,14 @@ Some(Aidl(
   package: Package(
     name: "x.y.z",
     symbol_range: "...",
+    full_range: "...",
   ),
   imports: [
     Import(
       path: "a.b",
       name: "c",
       symbol_range: "...",
+      full_range: "...",
     ),
   ],
   item: Interface(Interface(

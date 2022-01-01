@@ -6,4 +6,5 @@ expression: res
 Package(
   name: "x.y.z",
   symbol_range: "...",
+  full_range: "...",
 )

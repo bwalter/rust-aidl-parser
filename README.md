@@ -49,7 +49,7 @@ let symbols = traverse::filter_symbols(ast1, SymbolFilter::ItemsAndItemElements,
 println!("Found symbols containing 'el': {:#?}", symbols);
 
 // Find symbol with closure
-if let Some(symbol) = traverse::find_symbol(ast1, SymbolFilter::All, |s| s.get_name() == Some("myField")) {
+if let Some(symbol) = traverse::find_symbol(ast1, SymbolFilter::All, |s| s.get_name().as_deref() == Some("myField")) {
   println!("Found myField: {:#?}", symbol);
 }
 
