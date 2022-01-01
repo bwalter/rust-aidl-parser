@@ -16,8 +16,7 @@ pub enum SymbolFilter {
 
 /// Traverse the AST and provide the symbols to the given closure
 ///
-/// This function works like the visitor pattern. The depth is determined
-/// by the given filter.
+/// This function works like the visitor pattern.
 pub fn walk_symbols<'a, F: FnMut(Symbol<'a>)>(ast: &'a ast::Aidl, filter: SymbolFilter, mut f: F) {
     walk_symbols_with_control_flow(ast, filter, |smb| -> ControlFlow<()> {
         f(smb);
@@ -25,6 +24,32 @@ pub fn walk_symbols<'a, F: FnMut(Symbol<'a>)>(ast: &'a ast::Aidl, filter: Symbol
     });
 }
 
+/// Traverse the AST and filter the symbols based on the given predicate.
+///
+/// For each symbol, the predicate is called and the symbol will be
+/// added to the returned vector when the return value is true.
+///
+/// See also: [`walk_symbols`]
+pub fn filter_symbols<'a, F>(ast: &'a ast::Aidl, filter: SymbolFilter, mut f: F) -> Vec<Symbol<'a>>
+where
+    F: FnMut(&Symbol<'a>) -> bool,
+{
+    let mut v = Vec::new();
+    walk_symbols(ast, filter, |symbol| {
+        if f(&symbol) {
+            v.push(symbol);
+        }
+    });
+
+    v
+}
+
+/// Look for a symbol inside the AST based on the given predicate.
+///
+/// Return the first symbol for which the predicate returns true, or `None`
+/// if no matching symbol has been found.
+///
+/// See also: [`walk_symbols`]
 pub fn find_symbol<'a, F>(ast: &'a ast::Aidl, filter: SymbolFilter, mut f: F) -> Option<Symbol<'a>>
 where
     F: FnMut(&Symbol<'a>) -> bool,
@@ -43,7 +68,13 @@ where
     }
 }
 
-pub fn find_symbol_by_position(
+/// Look for a symbol at a given position.
+///
+/// Return the first symbol whose range includes the given position, or `None`
+/// if no matching symbol has been found.
+///
+/// See also: [`find_symbol`]
+pub fn find_symbol_at_line_col(
     ast: &ast::Aidl,
     filter: SymbolFilter,
     line_col: (usize, usize),
@@ -66,6 +97,14 @@ where
                 .iter()
                 .try_for_each(|t| $f(Symbol::Type(t)));
         };
+    }
+
+    if let SymbolFilter::All = filter {
+        f(Symbol::Package(&ast.package));
+
+        for import in &ast.imports {
+            f(Symbol::Import(import))?;
+        }
     }
 
     match ast.item {

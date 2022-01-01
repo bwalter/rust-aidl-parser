@@ -25,7 +25,8 @@ aidl-parser = "0.5.0"
 Create parser, analyze results:
 
 ```rust
-use aidl_parser::{traverse, Parser};
+use aidl_parser::Parser;
+use aidl_parser::traverse::{self, SymbolFilter};
 
 // Parse AIDL contents
 let mut parser = Parser::new();
@@ -42,13 +43,27 @@ for (id, res) in &results {
 // Traverse AST
 let ast1 = results["id1"].ast.as_ref().expect("missing AST");
 traverse::walk_symbols(ast1, traverse::SymbolFilter::All, |s| println!("- Symbol: {:#?}", s));
+
+// Filter symbols with closure
+let symbols = traverse::filter_symbols(ast1, SymbolFilter::ItemsAndItemElements, |s| s.get_name().unwrap_or_default().contains("el"));
+println!("Found symbols containing 'el': {:#?}", symbols);
+
+// Find symbol with closure
+if let Some(symbol) = traverse::find_symbol(ast1, SymbolFilter::All, |s| s.get_name() == Some("myField")) {
+  println!("Found myField: {:#?}", symbol);
+}
+
+// Find symbol at given position
+if let Some(symbol) = traverse::find_symbol_at_line_col(ast1, SymbolFilter::All, (0, 3)) {
+  println!("Found myField: {:#?}", symbol);
+}
 ```
 
 ## AIDL language support
 
 It is currently a best effort to provide good diagnostic and navigation based on the official AIDL documentation and AOSP implementation.
 
-It is planned to gradually improve language support to cover all the AIDL functionalities. If you encounter any issue or missing functionality while is not mentioned in the README, it is considered as a bug (please submit an issue or a pull request!).
+It is planned to gradually improve language support to cover all the AIDL functionalities. If you encounter any issue or missing functionality which is not mentioned in the README, it is considered as a bug (please submit an issue or a pull request!).
 
 To get more insight on the current grammar and validation, please refer to:
 - grammar (lalrpop): <https://github.com/bwalter/rust-aidl-parser/blob/main/src/aidl.lalrpop>
@@ -70,6 +85,7 @@ Link to AOSP AIDL implementation:
       "android.content.Context", "java.lang.String", "java.lang.CharSequence" (but add a warning)
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - Allow array of parcelable/interface? and check for enums in List or Map
+- Format?
 - validate:
   - file name matching item name
   - ParcelableHolder cannot (currently) be given as an argument?
