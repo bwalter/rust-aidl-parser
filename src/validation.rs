@@ -883,6 +883,7 @@ mod tests {
             package: ast::Package {
                 name: "test.package".into(),
                 symbol_range: utils::create_range(0),
+                full_range: utils::create_range(0),
             },
             imports: Vec::new(),
             item: ast::Item::Interface(ast::Interface {
@@ -1084,6 +1085,7 @@ mod tests {
                 path: "test.path".into(),
                 name: name.to_owned(),
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 

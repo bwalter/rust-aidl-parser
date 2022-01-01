@@ -19,21 +19,23 @@ pub OptAidl: Option<ast::Aidl> = {
 
 // e.g. package x.y.z;
 pub(crate) Package: ast::Package = {
-    PACKAGE <p1:@L> <name:QualifiedName> <p2:@R> ";" => {
+    <fp1:@L> PACKAGE <sp1:@L> <name:QualifiedName> <sp2:@R> <fp2:@R> ";" => {
         ast::Package {
             name,
-            symbol_range: ast::Range::new(lookup, p1, p2),
+            symbol_range: ast::Range::new(lookup, sp1, sp2),
+            full_range: ast::Range::new(lookup, fp1, fp2),
         }
     }
 }
 
 // e.g. import x.y.z;
 pub(crate) Import: ast::Import = {
-    IMPORT <p1:@L> <v:(<IDENT> ".")+> <n:IDENT> <p2:@R> ";" => {
+    <fp1:@L> IMPORT <sp1:@L> <v:(<IDENT> ".")+> <n:IDENT> <sp2:@R> <fp2:@R> ";" => {
         ast::Import {
             path: v.join("."),
             name: n.to_owned(),
-            symbol_range: ast::Range::new(lookup, p1, p2),
+            symbol_range: ast::Range::new(lookup, sp1, sp2),
+            full_range: ast::Range::new(lookup, fp1, fp2),
         }
     }
 }

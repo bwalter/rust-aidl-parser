@@ -4,6 +4,8 @@ use crate::ast;
 
 #[derive(Serialize, Clone, Debug)]
 pub enum Symbol<'a> {
+    Package(&'a ast::Package),
+    Import(&'a ast::Import),
     Interface(&'a ast::Interface),
     Parcelable(&'a ast::Parcelable),
     Enum(&'a ast::Enum),
@@ -16,22 +18,26 @@ pub enum Symbol<'a> {
 }
 
 impl<'a> Symbol<'a> {
-    pub fn get_name(&self) -> Option<&str> {
+    pub fn get_name(&self) -> Option<String> {
         match self {
-            Symbol::Interface(i) => Some(&i.name),
-            Symbol::Parcelable(p) => Some(&p.name),
-            Symbol::Enum(e) => Some(&e.name),
-            Symbol::Method(m) => Some(&m.name),
-            Symbol::Arg(a) => a.name.as_deref(),
-            Symbol::Const(c) => Some(&c.name),
-            Symbol::Member(m) => Some(&m.name),
-            Symbol::EnumElement(e) => Some(&e.name),
-            Symbol::Type(t) => Some(&t.name),
+            Symbol::Package(p) => Some(p.name.clone()),
+            Symbol::Import(i) => Some(i.get_qualified_name()),
+            Symbol::Interface(i) => Some(i.name.clone()),
+            Symbol::Parcelable(p) => Some(p.name.clone()),
+            Symbol::Enum(e) => Some(e.name.clone()),
+            Symbol::Method(m) => Some(m.name.clone()),
+            Symbol::Arg(a) => a.name.clone(),
+            Symbol::Const(c) => Some(c.name.clone()),
+            Symbol::Member(m) => Some(m.name.clone()),
+            Symbol::EnumElement(e) => Some(e.name.clone()),
+            Symbol::Type(t) => Some(t.name.clone()),
         }
     }
 
     pub fn get_range(&self) -> &ast::Range {
         match self {
+            Symbol::Package(p) => &p.symbol_range,
+            Symbol::Import(i) => &i.symbol_range,
             Symbol::Interface(i) => &i.symbol_range,
             Symbol::Parcelable(p) => &p.symbol_range,
             Symbol::Enum(e) => &e.symbol_range,
@@ -46,6 +52,8 @@ impl<'a> Symbol<'a> {
 
     pub fn get_full_range(&self) -> &ast::Range {
         match self {
+            Symbol::Package(p) => &p.full_range,
+            Symbol::Import(i) => &i.full_range,
             Symbol::Interface(i) => &i.full_range,
             Symbol::Parcelable(p) => &p.full_range,
             Symbol::Enum(e) => &e.full_range,
@@ -87,6 +95,8 @@ impl<'a> Symbol<'a> {
         }
 
         Some(match self {
+            Symbol::Package(_) => String::from("package"),
+            Symbol::Import(_) => String::from("import"),
             Symbol::Interface(_) => String::from("interface"),
             Symbol::Parcelable(_) => String::from("parcelable"),
             Symbol::Enum(_) => String::from("enum"),
@@ -153,8 +163,10 @@ impl<'a> Symbol<'a> {
         }
 
         Some(match self {
-            Symbol::Interface(i) => format!("interface {}", i.name),
+            Symbol::Package(p) => format!("package {}", p.name),
+            Symbol::Import(i) => format!("import {}", i.get_qualified_name()),
             Symbol::Parcelable(p) => format!("parcelable {}", p.name),
+            Symbol::Interface(i) => format!("interface {}", i.name),
             Symbol::Enum(e) => format!("enum {}", e.name),
             Symbol::Method(m) => {
                 format!(

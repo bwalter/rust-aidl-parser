@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Added traverse::filter_symbols() and small fixes
+
 ## [0.5.0] - 2022-01-01
 
 - Check for duplicated method name

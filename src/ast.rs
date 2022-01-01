@@ -80,6 +80,7 @@ impl Range {
 pub struct Package {
     pub name: String,
     pub symbol_range: Range,
+    pub full_range: Range,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -87,6 +88,7 @@ pub struct Import {
     pub path: String,
     pub name: String,
     pub symbol_range: Range,
+    pub full_range: Range,
 }
 
 impl Import {
