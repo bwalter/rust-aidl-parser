@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.5.0] - 2022-01-01
+
 - Check for duplicated method name
 - Check for duplicated method id
 - Check for mixed usage of methods with/without id
