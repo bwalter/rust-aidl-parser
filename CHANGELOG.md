@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.6.0] - 2022-01-01
+
 - Added traverse::filter_symbols() and small fixes
 
 ## [0.5.0] - 2022-01-01
