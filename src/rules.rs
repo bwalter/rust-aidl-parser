@@ -17,10 +17,11 @@ mod tests {
             let mut diagnostics = Vec::new();
             let lookup = lookup($input);
             let res = $parser.parse(&lookup, &mut diagnostics, $input)?;
-            //println!("BW - diagnostics: {:?}", diagnostics);
             ::insta::assert_ron_snapshot!(res, {
                 ".**.symbol_range" => "...",
                 ".**.full_range" => "...",
+                ".**.value_range" => "...",
+                ".**.oneway_range" => "...",
             });
             assert_eq!(diagnostics, &[]);
         };
@@ -28,10 +29,11 @@ mod tests {
         ($input:ident, $parser:expr, $diag:expr) => {
             let lookup = lookup($input);
             let res = $parser.parse(&lookup, $diag, $input)?;
-            //println!("BW - diagnostics: {:?}", $diag);
             ::insta::assert_ron_snapshot!(res, {
                 ".**.symbol_range" => "...",
                 ".**.full_range" => "...",
+                ".**.value_range" => "...",
+                ".**.oneway_range" => "...",
             });
         };
     }
@@ -82,7 +84,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid item - Unrecognized token `oops_interface`\nExpected one of ANNOTATION, ENUM, IMPORT or PARCELABLE",
+            message: "Invalid item - Unrecognized token `oops_interface`\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -133,6 +135,14 @@ mod tests {
             const String const2 = "two";
             int method2();
         }"#;
+        assert_parser!(input, rules::aidl::InterfaceParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_oneway_interface() -> Result<()> {
+        let input = r#"oneway interface OneWayInterface {}"#;
         assert_parser!(input, rules::aidl::InterfaceParser::new());
 
         Ok(())

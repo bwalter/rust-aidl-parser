@@ -3,9 +3,15 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Added support for oneway interfaces
+
 ## [0.6.2] - 2022-01-02
 
+- Fixed release automation issues
+
 ## [0.6.1] - 2022-01-02
+
+- Fixed unit test issues
 
 ## [0.6.0] - 2022-01-01
 

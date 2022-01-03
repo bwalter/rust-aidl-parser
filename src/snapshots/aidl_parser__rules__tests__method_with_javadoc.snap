@@ -13,17 +13,9 @@ Method(
   ),
   args: [],
   value: Some(123),
-  value_range: Range(
-    start: Position(
-      offset: 44,
-      line_col: (1, 45),
-    ),
-    end: Position(
-      offset: 49,
-      line_col: (1, 50),
-    ),
-  ),
   doc: Some("Method documentation"),
   symbol_range: "...",
   full_range: "...",
+  value_range: "...",
+  oneway_range: "...",
 )

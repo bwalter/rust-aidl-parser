@@ -4,10 +4,9 @@ expression: res
 
 ---
 Interface(
-  oneway: false,
-  name: "Potato",
+  oneway: true,
+  name: "OneWayInterface",
   elements: [],
-  doc: Some("Interface documentation"),
   full_range: "...",
   symbol_range: "...",
 )

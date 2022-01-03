@@ -4,6 +4,7 @@ expression: res
 
 ---
 Interface(
+  oneway: false,
   name: "Potato",
   elements: [],
   annotations: [
