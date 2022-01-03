@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.7.1] - 2022-01-03
+
 ## [0.7.0] - 2022-01-03
 
 - Added support for oneway interfaces
