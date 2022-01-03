@@ -43,16 +43,8 @@ Method(
       full_range: "...",
     ),
   ],
-  value_range: Range(
-    start: Position(
-      offset: 52,
-      line_col: (1, 53),
-    ),
-    end: Position(
-      offset: 52,
-      line_col: (1, 53),
-    ),
-  ),
   symbol_range: "...",
   full_range: "...",
+  value_range: "...",
+  oneway_range: "...",
 )

@@ -18,6 +18,7 @@ Some(Aidl(
     ),
   ],
   item: Interface(Interface(
+    oneway: false,
     name: "MyInterface",
     elements: [],
     full_range: "...",

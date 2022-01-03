@@ -46,17 +46,17 @@ fn test_parse() {
 
     // Check AIDL 1
     let ast1 = res.get("id1").expect("result").ast.as_ref().expect("ast");
-    let interface = ast1.as_interface().expect("interface");
+    let interface = ast1.item.as_interface().expect("interface");
     assert_eq!(interface.name, "MyInterface");
 
     // Check AIDL 2
     let ast2 = res.get("id2").expect("result").ast.as_ref().expect("ast");
-    let parcelable = ast2.as_parcelable().expect("parcelable");
+    let parcelable = ast2.item.as_parcelable().expect("parcelable");
     assert_eq!(parcelable.name, "MyParcelable");
 
     // Check AIDL 3
     let ast3 = res.get("id3").expect("result").ast.as_ref().expect("ast");
-    let enum_ = ast3.as_enum().expect("enum");
+    let enum_ = ast3.item.as_enum().expect("enum");
     assert_eq!(enum_.name, "UnusedEnum");
 
     // Check diagnostics
@@ -104,7 +104,7 @@ fn test_parse_error() -> Result<()> {
             line_col: (1, 25),
           ),
         ),
-        message: "Invalid item - Unrecognized token `completly`\nExpected one of ANNOTATION, ENUM, IMPORT or PARCELABLE",
+        message: "Invalid item - Unrecognized token `completly`\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
         context_message: Some("unrecognized token"),
         hint: None,
         related_infos: [],

@@ -18,30 +18,6 @@ impl Aidl {
     pub fn get_key(&self) -> ItemKey {
         format!("{}.{}", self.package.name, self.item.get_name())
     }
-
-    pub fn as_interface(&self) -> Option<&Interface> {
-        match &self.item {
-            Item::Interface(i) => Some(i),
-            Item::Parcelable(_) => None,
-            Item::Enum(_) => None,
-        }
-    }
-
-    pub fn as_parcelable(&self) -> Option<&Parcelable> {
-        match &self.item {
-            Item::Interface(_) => None,
-            Item::Parcelable(p) => Some(p),
-            Item::Enum(_) => None,
-        }
-    }
-
-    pub fn as_enum(&self) -> Option<&Enum> {
-        match &self.item {
-            Item::Interface(_) => None,
-            Item::Parcelable(_) => None,
-            Item::Enum(e) => Some(e),
-        }
-    }
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -105,6 +81,13 @@ pub enum InterfaceElement {
 }
 
 impl InterfaceElement {
+    pub fn as_method(&self) -> Option<&Method> {
+        match &self {
+            InterfaceElement::Method(m) => Some(m),
+            _ => None,
+        }
+    }
+
     pub fn get_name(&self) -> &str {
         match self {
             InterfaceElement::Const(c) => &c.name,
@@ -135,6 +118,27 @@ pub enum Item {
 }
 
 impl Item {
+    pub fn as_interface(&self) -> Option<&Interface> {
+        match &self {
+            Item::Interface(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_parcelable(&self) -> Option<&Parcelable> {
+        match &self {
+            Item::Parcelable(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&Enum> {
+        match &self {
+            Item::Enum(e) => Some(e),
+            _ => None,
+        }
+    }
+
     pub fn get_kind(&self) -> ItemKind {
         match self {
             Item::Interface(_) => ItemKind::Interface,
@@ -170,6 +174,7 @@ impl Item {
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Interface {
+    pub oneway: bool,
     pub name: String,
     pub elements: Vec<InterfaceElement>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -227,11 +232,12 @@ pub struct Method {
     pub annotations: Vec<Annotation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<u32>,
-    pub value_range: Range,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
+    pub value_range: Range,
+    pub oneway_range: Range,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]

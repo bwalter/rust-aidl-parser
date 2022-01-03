@@ -68,11 +68,12 @@ OptItem: Option<ast::Item> = {
 pub(crate) Interface: ast::Interface = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptInterfaceElement*> "}" <fp2:@R> => {
+    <fp1:@L> <oneway:ONEWAY?> INTERFACE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptInterfaceElement*> "}" <fp2:@R> => {
         // Convert Vec<Option<InterfaceElement>> into Vec<InterfaceElement>
         let elements: Vec<ast::InterfaceElement> = v.into_iter().flatten().collect();
 
         ast::Interface {
+            oneway: oneway.is_some(),
             name: s.into(),
             elements,
             annotations,
@@ -159,7 +160,7 @@ OptEnumElement: Option<ast::EnumElement> = {
 pub(crate) Method: ast::Method = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> <oneway:ONEWAY?> <rt:Type>
+    <fp1:@L> <owp1:@L> <oneway:ONEWAY?> <owp2:@R> <rt:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     "(" <args:CommaSeparated<Arg>> ")"
     <vp1:@L> <v:("=" <INTEGER>)?> <vp2:@R>  // TODO: only [0-9]+
@@ -186,9 +187,10 @@ pub(crate) Method: ast::Method = {
                 },
                 None => None,
             },
-            value_range: ast::Range::new(&lookup, vp1, vp2),
             full_range: ast::Range::new(&lookup, fp1, fp2),
             symbol_range: ast::Range::new(&lookup, sp1, sp2),
+            value_range: ast::Range::new(&lookup, vp1, vp2),
+            oneway_range: ast::Range::new(&lookup, owp1, owp2),
         }
     }
 }

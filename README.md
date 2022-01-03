@@ -84,7 +84,6 @@ Link to AOSP AIDL implementation:
 - Ignore Java-like imports: "android.os.IInterface", "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",
       "android.content.Context", "java.lang.String", "java.lang.CharSequence" (but add a warning)
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
-- Allow array of parcelable/interface? and check for enums in List or Map
 - Format?
 - validate:
   - file name matching item name

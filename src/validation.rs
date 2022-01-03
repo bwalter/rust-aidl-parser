@@ -35,6 +35,11 @@ where
             // Check types (e.g.: map parameters)
             check_types(&ast, &keys, &mut fr.diagnostics);
 
+            if let ast::Item::Interface(ref mut interface) = ast.item {
+                // Set up oneway interface (adjust methods to be oneway)
+                set_up_oneway_interface(interface, &mut fr.diagnostics);
+            }
+
             // Check methods (e.g.: return type of async methods)
             check_methods(&ast, &keys, &mut fr.diagnostics);
 
@@ -50,6 +55,41 @@ where
             )
         })
         .collect()
+}
+
+fn set_up_oneway_interface(interface: &mut ast::Interface, diagnostics: &mut Vec<Diagnostic>) {
+    if !interface.oneway {
+        return;
+    }
+
+    interface
+        .elements
+        .iter_mut()
+        .filter_map(|el| match el {
+            ast::InterfaceElement::Const(_) => None,
+            ast::InterfaceElement::Method(m) => Some(m),
+        })
+        .for_each(|method| {
+            if method.oneway {
+                diagnostics.push(Diagnostic {
+                    kind: DiagnosticKind::Warning,
+                    range: method.oneway_range.clone(),
+                    message: format!(
+                        "Method `{}` of oneway interface does not need to be marked as oneway",
+                        method.name
+                    ),
+                    context_message: Some("redundant oneway".to_owned()),
+                    hint: None,
+                    related_infos: Vec::from([diagnostic::RelatedInfo {
+                        message: "oneway interface".to_owned(),
+                        range: interface.symbol_range.clone(),
+                    }]),
+                });
+            } else {
+                // Force me
+                method.oneway = true;
+            }
+        });
 }
 
 fn resolve_types(
@@ -833,6 +873,50 @@ mod tests {
     }
 
     #[test]
+    fn test_set_up_oneway() {
+        let blocking_method = utils::create_method_with_name_and_id("blocking_method", None, 20);
+
+        let mut oneway_method = utils::create_method_with_name_and_id("oneway_method", None, 10);
+        oneway_method.oneway = true;
+
+        let mut interface = ast::Interface {
+            oneway: false,
+            name: "testMethod".into(),
+            elements: [blocking_method, oneway_method]
+                .into_iter()
+                .map(ast::InterfaceElement::Method)
+                .collect(),
+            annotations: Vec::new(),
+            doc: None,
+            full_range: utils::create_range(5),
+            symbol_range: utils::create_range(5),
+        };
+
+        // "normal" interface -> no change, no diagnostic
+        assert!(!interface.oneway);
+        let mut diagnostics = Vec::new();
+        set_up_oneway_interface(&mut interface, &mut diagnostics);
+        assert!(!interface.elements[0].as_method().unwrap().oneway,);
+        assert!(interface.elements[1].as_method().unwrap().oneway,);
+        assert_eq!(diagnostics.len(), 0);
+
+        interface.oneway = true;
+
+        // oneway interface -> blocking method will be oneway, oneway method will cause a warning
+        let mut diagnostics = Vec::new();
+        set_up_oneway_interface(&mut interface, &mut diagnostics);
+        assert!(interface.elements[0].as_method().unwrap().oneway);
+        assert!(interface.elements[1].as_method().unwrap().oneway);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
+        assert!(diagnostics[0]
+            .message
+            .contains("does not need to be marked as oneway"));
+        assert_eq!(diagnostics[0].related_infos.len(), 1);
+        assert_eq!(diagnostics[0].related_infos[0].range.start.line_col.0, 5);
+    }
+
+    #[test]
     fn test_check_method() {
         // Non-async method with return value -> ok
         let void_method = ast::Method {
@@ -842,10 +926,11 @@ mod tests {
             args: Vec::new(),
             annotations: Vec::new(),
             value: None,
-            value_range: utils::create_range(0),
             doc: None,
             symbol_range: utils::create_range(0),
             full_range: utils::create_range(0),
+            value_range: utils::create_range(0),
+            oneway_range: utils::create_range(0),
         };
         let mut diagnostics = Vec::new();
         check_method(&void_method, &HashMap::new(), &mut diagnostics);
@@ -887,6 +972,7 @@ mod tests {
             },
             imports: Vec::new(),
             item: ast::Item::Interface(ast::Interface {
+                oneway: false,
                 name: "testMethod".into(),
                 elements: methods
                     .into_iter()
@@ -928,11 +1014,12 @@ mod tests {
             return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
             args: Vec::new(),
             value: None,
-            value_range: utils::create_range(0),
             annotations: Vec::new(),
             doc: None,
             symbol_range: utils::create_range(0),
             full_range: utils::create_range(1),
+            value_range: utils::create_range(0),
+            oneway_range: utils::create_range(0),
         };
 
         let keys = HashMap::from([
@@ -1164,10 +1251,11 @@ mod tests {
                 args: Vec::new(),
                 annotations: Vec::new(),
                 value: id,
-                value_range: create_range(line + 1),
                 doc: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
+                value_range: create_range(line + 1),
+                oneway_range: create_range(line + 2),
             }
         }
         pub fn create_arg(arg_type: ast::Type, direction: ast::Direction) -> ast::Arg {
