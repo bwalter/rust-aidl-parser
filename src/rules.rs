@@ -4,6 +4,7 @@ lalrpop_mod!(#[allow(clippy::all, dead_code, unused_imports)] pub aidl);
 
 #[cfg(test)]
 mod tests {
+    use crate::diagnostic::DiagnosticKind;
     use crate::rules;
     use anyhow::Result;
 
@@ -115,6 +116,38 @@ mod tests {
     fn test_import() -> Result<()> {
         let input = "import x.y.z;";
         assert_parser!(input, rules::aidl::ImportParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_declared_parcelable() -> Result<()> {
+        let mut diagnostics = Vec::new();
+
+        let input = "parcelable X;";
+        assert_parser!(
+            input,
+            rules::aidl::DeclaredParcelableParser::new(),
+            &mut diagnostics
+        );
+        let input = "parcelable any.pkg.Y;";
+        assert_parser!(
+            input,
+            rules::aidl::DeclaredParcelableParser::new(),
+            &mut diagnostics
+        );
+        let input = "@Annotation1 @Annotation2\nparcelable any.pkg.Y;";
+        assert_parser!(
+            input,
+            rules::aidl::DeclaredParcelableParser::new(),
+            &mut diagnostics
+        );
+
+        // Warning generated because it is recommended to define parcelables in AIDL
+        assert_eq!(diagnostics.len(), 3);
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
+        assert_eq!(diagnostics[1].kind, DiagnosticKind::Warning);
+        assert_eq!(diagnostics[2].kind, DiagnosticKind::Warning);
 
         Ok(())
     }

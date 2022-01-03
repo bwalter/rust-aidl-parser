@@ -78,7 +78,6 @@ Link to AOSP AIDL implementation:
 - Annotation attached to primitive type
 - union (Android 12)
 - nested types (Android T)
-- Parcelable declaration(= forward declaration), with optional annotations
 - Allow annotations for list/map parameters?
 - Android types: ParcelableHolder, IBinder, FileDescriptor, ParcelFileDescriptor, 
 - Ignore Java-like imports: "android.os.IInterface", "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",

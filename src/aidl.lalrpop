@@ -8,7 +8,7 @@ use crate::diagnostic::{Diagnostic, DiagnosticKind};
 use crate::javadoc;
 
 pub OptAidl: Option<ast::Aidl> = {
-    <p:Package> <vi:Import*> <oi:OptItem> => {
+    <p:Package> <vi:Import*> DeclaredParcelable* <oi:OptItem> => {
         oi.map(|item| ast::Aidl {
             package: p,
             imports: vi,
@@ -48,6 +48,21 @@ QualifiedName: String = {
         } else {
             format!("{}.{}", v.join("."), n)
         }
+    }
+}
+
+// e.g. parcelable MyParcelable;
+pub(crate) DeclaredParcelable: () = {
+    <annotations:AnnotationList>
+    <p1:@L> PARCELABLE <n:QualifiedName> ";" <p2:@R> => {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Warning,
+            range: ast::Range::new(&lookup, p1, p2),
+            message: format!("Usage of declared parcelable {}", n),
+            context_message: Some(String::from("declared parcelable")),
+            hint: Some(String::from("It is recommended to defined parcelables in AIDL to garantee compatilibity between languages")),
+            related_infos: Vec::new(),
+        });
     }
 }
 
@@ -348,6 +363,7 @@ TypeCustom: ast::Type = {
     }
 }
 
+#[inline]
 AnnotationList: Vec<ast::Annotation> = {
     // Convert Vec<Option<Annotation>> into Vec<Annotation>
     <v:OptAnnotation*> => v.into_iter().flatten().collect()
