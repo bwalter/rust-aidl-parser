@@ -191,8 +191,15 @@ fn range_contains(range: &ast::Range, line_col: (usize, usize)) -> bool {
 /// Traverse the AST and provide the types to the given closure
 pub fn walk_types<F: FnMut(&ast::Type)>(ast: &ast::Aidl, mut f: F) {
     let mut visit_type_helper = move |type_: &ast::Type| {
-        f(type_);
-        type_.generic_types.iter().for_each(&mut f);
+        if type_.kind == ast::TypeKind::Array {
+            // For arrays, start with the array element type, then on the array itself
+            type_.generic_types.iter().for_each(&mut f);
+            f(type_);
+        } else {
+            // For other types, start with the main type and then its generic types
+            f(type_);
+            type_.generic_types.iter().for_each(&mut f);
+        }
     };
 
     match ast.item {
