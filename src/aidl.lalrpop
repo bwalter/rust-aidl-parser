@@ -325,7 +325,7 @@ TypeString: ast::Type = {
 }
 
 TypeArray: ast::Type = {
-    <p1:@L> <pp1:@L> <p:Type> <pp2:@R> "[" "]" <p2:@L> => {
+    <p1:@L> <p:Type> "[" "]" <p2:@L> => {
         ast::Type::array(p, &lookup, p1, p2)
     },
 }

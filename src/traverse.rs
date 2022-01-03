@@ -92,10 +92,19 @@ where
 {
     macro_rules! visit_type_helper {
         ($t:expr, $f:ident) => {
-            $f(Symbol::Type($t))?;
-            $t.generic_types
-                .iter()
-                .try_for_each(|t| $f(Symbol::Type(t)));
+            if $t.kind == ast::TypeKind::Array {
+                // For arrays, start with the array element type, then on the array itself
+                $t.generic_types
+                    .iter()
+                    .try_for_each(|t| $f(Symbol::Type(t)))?;
+                $f(Symbol::Type($t))?;
+            } else {
+                // For other types, start with the main type and then its generic types
+                $f(Symbol::Type($t))?;
+                $t.generic_types
+                    .iter()
+                    .try_for_each(|t| $f(Symbol::Type(t)))?;
+            }
         };
     }
 
