@@ -1068,17 +1068,11 @@ mod tests {
             }
         }
 
-        // Arrays, maps, parcelables and interfaces require direction
+        // Arrays, maps and parcelables require direction
         for t in [
             utils::create_array(utils::create_int(0), 0),
-            utils::create_list(
-                Some(utils::create_simple_type(
-                    "String",
-                    ast::TypeKind::String,
-                    0,
-                )),
-                0,
-            ),
+            utils::create_list(None, 0),
+            utils::create_map(None, 0),
             utils::create_custom_type("test.TestParcelable", 0),
         ]
         .into_iter()
