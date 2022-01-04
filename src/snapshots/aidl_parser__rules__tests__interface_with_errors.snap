@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 218
 expression: res
 
 ---
@@ -7,12 +8,12 @@ Interface(
   oneway: false,
   name: "Potato",
   elements: [
-    Method(Method(
+    method(Method(
       oneway: false,
       name: "method1",
       return_type: Type(
         name: "String",
-        kind: String,
+        kind: string,
         symbol_range: "...",
       ),
       args: [],
@@ -21,12 +22,12 @@ Interface(
       value_range: "...",
       oneway_range: "...",
     )),
-    Method(Method(
+    method(Method(
       oneway: false,
       name: "method2",
       return_type: Type(
         name: "int",
-        kind: Primitive,
+        kind: primitive,
         symbol_range: "...",
       ),
       args: [],
@@ -35,11 +36,11 @@ Interface(
       value_range: "...",
       oneway_range: "...",
     )),
-    Const(Const(
+    const(Const(
       name: "const2",
-      const_type: Type(
+      type: Type(
         name: "String",
-        kind: String,
+        kind: string,
         symbol_range: "...",
       ),
       value: "123",

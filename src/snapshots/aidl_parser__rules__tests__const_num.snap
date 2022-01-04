@@ -1,13 +1,14 @@
 ---
 source: src/rules.rs
+assertion_line: 519
 expression: res
 
 ---
 Const(
   name: "CONST_NAME",
-  const_type: Type(
+  type: Type(
     name: "int",
-    kind: Primitive,
+    kind: primitive,
     symbol_range: "...",
   ),
   value: "123",

@@ -1,19 +1,20 @@
 ---
 source: src/rules.rs
+assertion_line: 594
 expression: res
 
 ---
 Type(
   name: "Array",
-  kind: Array,
+  kind: array,
   generic_types: [
     Type(
       name: "Array",
-      kind: Array,
+      kind: array,
       generic_types: [
         Type(
           name: "int",
-          kind: Primitive,
+          kind: primitive,
           symbol_range: "...",
         ),
       ],

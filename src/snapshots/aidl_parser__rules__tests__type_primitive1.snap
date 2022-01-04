@@ -1,10 +1,11 @@
 ---
 source: src/rules.rs
+assertion_line: 554
 expression: res
 
 ---
 Type(
   name: "double",
-  kind: Primitive,
+  kind: primitive,
   symbol_range: "...",
 )

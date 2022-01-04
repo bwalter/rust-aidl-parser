@@ -1,24 +1,25 @@
 ---
 source: src/rules.rs
+assertion_line: 628
 expression: res
 
 ---
 Type(
   name: "Map",
-  kind: Map,
+  kind: map,
   generic_types: [
     Type(
       name: "Key",
-      kind: Custom,
+      kind: custom,
       symbol_range: "...",
     ),
     Type(
       name: "List",
-      kind: List,
+      kind: list,
       generic_types: [
         Type(
           name: "V",
-          kind: Custom,
+          kind: custom,
           symbol_range: "...",
         ),
       ],

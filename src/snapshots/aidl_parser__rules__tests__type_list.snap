@@ -1,15 +1,16 @@
 ---
 source: src/rules.rs
+assertion_line: 602
 expression: res
 
 ---
 Type(
   name: "List",
-  kind: List,
+  kind: list,
   generic_types: [
     Type(
       name: "MyObject",
-      kind: Custom,
+      kind: custom,
       symbol_range: "...",
     ),
   ],

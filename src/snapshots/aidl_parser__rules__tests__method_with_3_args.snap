@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 394
 expression: res
 
 ---
@@ -8,15 +9,15 @@ Method(
   name: "myMethod",
   return_type: Type(
     name: "TypeName",
-    kind: Custom,
+    kind: custom,
     symbol_range: "...",
   ),
   args: [
     Arg(
       name: None,
-      arg_type: Type(
+      type: Type(
         name: "ArgType1",
-        kind: Custom,
+        kind: custom,
         symbol_range: "...",
       ),
       symbol_range: "...",
@@ -24,9 +25,9 @@ Method(
     ),
     Arg(
       name: Some("arg2"),
-      arg_type: Type(
+      type: Type(
         name: "ArgType2",
-        kind: Custom,
+        kind: custom,
         symbol_range: "...",
       ),
       symbol_range: "...",
@@ -34,9 +35,9 @@ Method(
     ),
     Arg(
       name: None,
-      arg_type: Type(
+      type: Type(
         name: "ArgType3",
-        kind: Custom,
+        kind: custom,
         symbol_range: "...",
       ),
       symbol_range: "...",

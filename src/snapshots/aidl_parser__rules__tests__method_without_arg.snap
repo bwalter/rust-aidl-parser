@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 378
 expression: res
 
 ---
@@ -8,7 +9,7 @@ Method(
   name: "myMethod",
   return_type: Type(
     name: "TypeName",
-    kind: Custom,
+    kind: custom,
     symbol_range: "...",
   ),
   args: [],

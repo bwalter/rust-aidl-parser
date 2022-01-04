@@ -1,10 +1,11 @@
 ---
 source: src/rules.rs
+assertion_line: 452
 expression: res
 
 ---
 Arg(
-  direction: In(Range(
+  direction: in(Range(
     start: Position(
       offset: 0,
       line_col: (1, 1),
@@ -15,9 +16,9 @@ Arg(
     ),
   )),
   name: None,
-  arg_type: Type(
+  type: Type(
     name: "TypeName",
-    kind: Custom,
+    kind: custom,
     symbol_range: "...",
   ),
   symbol_range: "...",
