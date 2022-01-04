@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 436
 expression: res
 
 ---
@@ -8,7 +9,7 @@ Method(
   name: "myMethod",
   return_type: Type(
     name: "void",
-    kind: Void,
+    kind: void,
     symbol_range: "...",
   ),
   args: [],

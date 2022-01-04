@@ -1,9 +1,9 @@
 use core::fmt;
 use std::collections::HashMap;
 
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Aidl {
     pub package: Package,
     pub imports: Vec<Import>,
@@ -20,7 +20,7 @@ impl Aidl {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub offset: usize,
 
@@ -37,7 +37,7 @@ impl Position {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Range {
     pub start: Position,
     pub end: Position,
@@ -52,14 +52,14 @@ impl Range {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Package {
     pub name: String,
     pub symbol_range: Range,
     pub full_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Import {
     pub path: String,
     pub name: String,
@@ -74,7 +74,8 @@ impl Import {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum InterfaceElement {
     Const(Const),
     Method(Method),
@@ -103,14 +104,16 @@ impl InterfaceElement {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemKind {
     Interface,
     Parcelable,
     Enum,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Item {
     Interface(Interface),
     Parcelable(Parcelable),
@@ -172,7 +175,7 @@ impl Item {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Interface {
     pub oneway: bool,
     pub name: String,
@@ -185,7 +188,7 @@ pub struct Interface {
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Parcelable {
     pub name: String,
     pub members: Vec<Member>,
@@ -197,7 +200,7 @@ pub struct Parcelable {
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
@@ -208,9 +211,10 @@ pub struct Enum {
     pub full_range: Range,
     pub symbol_range: Range,
 }
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Const {
     pub name: String,
+    #[serde(rename = "type")]
     pub const_type: Type,
     pub value: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -221,7 +225,7 @@ pub struct Const {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Method {
     #[serde(default, skip_serializing_if = "BoolExt::is_true")]
     pub oneway: bool,
@@ -240,11 +244,12 @@ pub struct Method {
     pub oneway_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Arg {
     #[serde(default, skip_serializing_if = "Direction::is_unspecified")]
     pub direction: Direction,
     pub name: Option<String>,
+    #[serde(rename = "type")]
     pub arg_type: Type,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
@@ -254,7 +259,8 @@ pub struct Arg {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Direction {
     In(Range),
     Out(Range),
@@ -285,9 +291,10 @@ impl fmt::Display for Direction {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Member {
     pub name: String,
+    #[serde(rename = "type")]
     pub member_type: Type,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
@@ -305,7 +312,7 @@ impl Member {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct EnumElement {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -316,14 +323,15 @@ pub struct EnumElement {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Annotation {
     pub name: String,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub key_values: HashMap<String, Option<String>>,
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TypeKind {
     Primitive,
     Void,
@@ -335,7 +343,7 @@ pub enum TypeKind {
     Invalid,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Type {
     pub name: String,
     pub kind: TypeKind,

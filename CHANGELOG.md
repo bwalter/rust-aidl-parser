@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Allow AST types to be deserialized and adjust case
+
 ## [0.7.3] - 2022-01-04
 
 - Fixed direction validation for interface method arguments

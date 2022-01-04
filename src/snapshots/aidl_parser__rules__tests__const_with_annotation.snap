@@ -1,13 +1,14 @@
 ---
 source: src/rules.rs
+assertion_line: 546
 expression: res
 
 ---
 Const(
   name: "CONST_NAME",
-  const_type: Type(
+  type: Type(
     name: "TypeName",
-    kind: Custom,
+    kind: custom,
     symbol_range: "...",
   ),
   value: "123",

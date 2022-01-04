@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 277
 expression: res
 
 ---
@@ -8,9 +9,9 @@ Parcelable(
   members: [
     Member(
       name: "member1",
-      member_type: Type(
+      type: Type(
         name: "int",
-        kind: Primitive,
+        kind: primitive,
         symbol_range: "...",
       ),
       symbol_range: "...",
@@ -18,9 +19,9 @@ Parcelable(
     ),
     Member(
       name: "member3",
-      member_type: Type(
+      type: Type(
         name: "String",
-        kind: String,
+        kind: string,
         symbol_range: "...",
       ),
       symbol_range: "...",

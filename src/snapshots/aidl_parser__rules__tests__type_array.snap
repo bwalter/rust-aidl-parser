@@ -1,15 +1,16 @@
 ---
 source: src/rules.rs
+assertion_line: 586
 expression: res
 
 ---
 Type(
   name: "Array",
-  kind: Array,
+  kind: array,
   generic_types: [
     Type(
       name: "float",
-      kind: Primitive,
+      kind: primitive,
       symbol_range: "...",
     ),
   ],

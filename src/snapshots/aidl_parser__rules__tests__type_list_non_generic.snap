@@ -1,10 +1,11 @@
 ---
 source: src/rules.rs
+assertion_line: 610
 expression: res
 
 ---
 Type(
   name: "List",
-  kind: List,
+  kind: list,
   symbol_range: "...",
 )

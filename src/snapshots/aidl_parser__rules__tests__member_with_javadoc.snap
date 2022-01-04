@@ -1,13 +1,14 @@
 ---
 source: src/rules.rs
+assertion_line: 503
 expression: res
 
 ---
 Member(
   name: "memberName",
-  member_type: Type(
+  type: Type(
     name: "TypeName",
-    kind: Custom,
+    kind: custom,
     symbol_range: "...",
   ),
   doc: Some("Member documentation"),

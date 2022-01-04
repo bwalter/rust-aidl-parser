@@ -1,5 +1,6 @@
 ---
 source: src/rules.rs
+assertion_line: 56
 expression: res
 
 ---
@@ -17,7 +18,7 @@ Some(Aidl(
       full_range: "...",
     ),
   ],
-  item: Interface(Interface(
+  item: interface(Interface(
     oneway: false,
     name: "MyInterface",
     elements: [],
