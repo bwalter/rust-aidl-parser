@@ -115,16 +115,7 @@ impl<'a> Symbol<'a> {
             Symbol::Const(c) => format!("const {}", get_type_str(&c.const_type)),
             Symbol::Member(m) => get_type_str(&m.member_type),
             Symbol::EnumElement(_) => return None,
-            Symbol::Type(t) => {
-                if t.generic_types.is_empty() {
-                    return None;
-                }
-                t.generic_types
-                    .iter()
-                    .map(get_type_str)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
+            Symbol::Type(t) => get_type_str(t),
         })
     }
 
@@ -184,16 +175,7 @@ impl<'a> Symbol<'a> {
             Symbol::Const(c) => format!("const {} {}", get_type_str(&c.const_type), c.name),
             Symbol::Member(m) => format!("{} {}", get_type_str(&m.member_type), m.name),
             Symbol::EnumElement(el) => el.name.clone(),
-            Symbol::Type(t) => {
-                if t.generic_types.is_empty() {
-                    return None;
-                }
-                t.generic_types
-                    .iter()
-                    .map(get_type_str)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
+            Symbol::Type(t) => get_type_str(t),
         })
     }
 }

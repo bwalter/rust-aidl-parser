@@ -58,7 +58,7 @@ pub(crate) DeclaredParcelable: () = {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Warning,
             range: ast::Range::new(&lookup, p1, p2),
-            message: format!("Usage of declared parcelable {}", n),
+            message: format!("Usage of declared parcelable `{}`", n),
             context_message: Some(String::from("declared parcelable")),
             hint: Some(String::from("It is recommended to defined parcelables in AIDL to garantee compatilibity between languages")),
             related_infos: Vec::new(),
