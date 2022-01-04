@@ -476,7 +476,9 @@ fn get_requirement_for_arg_direction(
                     Some(ast::ItemKind::Parcelable) => {
                         RequirementForArgDirection::DirectionRequired
                     }
-                    Some(ast::ItemKind::Interface) => RequirementForArgDirection::DirectionRequired,
+                    Some(ast::ItemKind::Interface) => {
+                        RequirementForArgDirection::CanOnlyBeInOrUnspecified
+                    }
                     Some(ast::ItemKind::Enum) => {
                         RequirementForArgDirection::CanOnlyBeInOrUnspecified
                     }
@@ -1028,11 +1030,12 @@ mod tests {
             ("test.TestEnum".into(), ast::ItemKind::Enum),
         ]);
 
-        // Primitives and string can only be in or unspecified
+        // Primitives, String and Interfaces can only be in or unspecified
         for t in [
             utils::create_int(0),
             utils::create_simple_type("String", ast::TypeKind::String, 0),
             utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_custom_type("test.TestInterface", 0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
         .into_iter()
@@ -1077,7 +1080,6 @@ mod tests {
                 0,
             ),
             utils::create_custom_type("test.TestParcelable", 0),
-            utils::create_custom_type("test.TestInterface", 0),
         ]
         .into_iter()
         {
@@ -1113,7 +1115,6 @@ mod tests {
             utils::create_list(None, 0),
             utils::create_map(None, 0),
             utils::create_custom_type("test.TestParcelable", 0),
-            utils::create_custom_type("test.TestInterface", 0),
         ]
         .into_iter()
         {

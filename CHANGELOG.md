@@ -3,9 +3,16 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Fixed direction validation for interface method arguments
+
 ## [0.7.2] - 2022-01-04
 
+- Fixed minor issues when traversing arrays
+- Updated dependencies
+
 ## [0.7.1] - 2022-01-03
+
+- Fixed minor issues when traversing arrays
 
 ## [0.7.0] - 2022-01-03
 
