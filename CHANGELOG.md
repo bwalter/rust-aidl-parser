@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.7.3] - 2022-01-04
+
 - Fixed direction validation for interface method arguments
 
 ## [0.7.2] - 2022-01-04
