@@ -40,12 +40,12 @@ impl<'a> Symbol<'a> {
             Symbol::Import(i) => Some(i.get_qualified_name()),
             Symbol::Interface(i, pkg) => Some(format!("{}.{}", pkg.name, i.name)),
             Symbol::Parcelable(p, pkg) => Some(format!("{}.{}", pkg.name, p.name)),
-            Symbol::Enum(e, pkg) => Some(format!("{}.{}", pkg.name, e.name)),
-            Symbol::Method(m, i) => Some(format!("{}.{}", i.name, m.name)),
+            Symbol::Enum(e, pkg) => Some(format!("{}{}", pkg.name, e.name)),
+            Symbol::Method(m, i) => Some(format!("{}::{}", i.name, m.name)),
             Symbol::Arg(a, _) => a.name.clone(),
-            Symbol::Const(c, i) => Some(format!("{}.{}", i.name, c.name)),
-            Symbol::Member(m, p) => Some(format!("{}.{}", p.name, m.name)),
-            Symbol::EnumElement(el, e) => Some(format!("{}.{}", e.name, el.name)),
+            Symbol::Const(c, i) => Some(format!("{}::{}", i.name, c.name)),
+            Symbol::Member(m, p) => Some(format!("{}::{}", p.name, m.name)),
+            Symbol::EnumElement(el, e) => Some(format!("{}::{}", e.name, el.name)),
             Symbol::Type(t) => t
                 .definition
                 .as_ref()
