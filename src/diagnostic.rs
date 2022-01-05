@@ -60,7 +60,7 @@ impl Diagnostic {
             }),
             lalrpop_util::ParseError::UnrecognizedEOF { location, expected } => Some(Diagnostic {
                 kind: DiagnosticKind::Error,
-                message: format!("Unrecognized EOF{}", expected_token_str(&expected)),
+                message: format!("Unrecognized EOF.\n{}", expected_token_str(&expected)),
                 context_message: Some("unrecognized EOF".to_owned()),
                 range: Range::new(lookup, location, location),
                 hint: None,
@@ -69,7 +69,7 @@ impl Diagnostic {
             lalrpop_util::ParseError::UnrecognizedToken { token, expected } => Some(Diagnostic {
                 kind: DiagnosticKind::Error,
                 message: format!(
-                    "Unrecognized token `{}`{}",
+                    "Unrecognized token `{}`.\n{}",
                     token.1,
                     expected_token_str(&expected)
                 ),
@@ -91,12 +91,14 @@ impl Diagnostic {
     }
 }
 
+// TODO: replace empty (or EOF?)!
 fn expected_token_str(v: &[String]) -> String {
     match v.len() {
         0 => String::new(),
-        1 => format!("\nExpected one of {}", v[0]),
+        1 => format!("Expected {}", v[0]),
+        2 => format!("Expected {} or {}", v[0], v[1]),
         _ => format!(
-            "\nExpected one of {} or {}",
+            "Expected one of {} or {}",
             v[0..v.len() - 2].join(", "),
             v[v.len() - 1]
         ),

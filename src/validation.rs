@@ -257,7 +257,6 @@ fn check_type(
     };
 }
 
-// TODO: check no duplicates, check valid method IDs (either none or all, no duplicates)
 fn check_methods(
     file: &ast::Aidl,
     defined: &HashMap<String, ast::ItemKind>,
@@ -404,19 +403,19 @@ fn check_method_args(
         };
 
         match get_requirement_for_arg_direction(&arg.arg_type, defined) {
-            RequirementForArgDirection::DirectionRequired => {
+            RequirementForArgDirection::DirectionRequired(for_elements) => {
                 if arg.direction == ast::Direction::Unspecified {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         message: format!("Missing direction for `{}`", arg.arg_type.name,),
                         context_message: Some("missing direction".to_owned()),
                         range: range.clone(),
-                        hint: Some("direction is required for objects".to_owned()),
+                        hint: Some(format!("direction is required for {}", for_elements)),
                         related_infos: Vec::new(),
                     });
                 }
             }
-            RequirementForArgDirection::CanOnlyBeInOrUnspecified => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified(for_elements) => {
                 if !matches!(
                     arg.direction,
                     ast::Direction::Unspecified | ast::Direction::In(_)
@@ -426,7 +425,7 @@ fn check_method_args(
                         message: format!("Invalid direction for `{}`", arg.arg_type.name),
                         context_message: Some("invalid direction".to_owned()),
                         range: range.clone(),
-                        hint: Some("can only be `in` or omitted".to_owned()),
+                        hint: Some(format!("{} can only be `in` or omitted", for_elements,)),
                         related_infos: Vec::new(),
                     });
                 }
@@ -454,9 +453,10 @@ fn check_method_args(
     }
 }
 
+// Parameters describe for which elements the requirement applies
 enum RequirementForArgDirection {
-    DirectionRequired,
-    CanOnlyBeInOrUnspecified,
+    DirectionRequired(&'static str),
+    CanOnlyBeInOrUnspecified(&'static str),
     NoRequirement,
 }
 
@@ -465,22 +465,26 @@ fn get_requirement_for_arg_direction(
     defined: &HashMap<String, ast::ItemKind>,
 ) -> RequirementForArgDirection {
     match type_.kind {
-        ast::TypeKind::Primitive => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
-        ast::TypeKind::Void => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
-        ast::TypeKind::Array => RequirementForArgDirection::DirectionRequired,
-        ast::TypeKind::Map | ast::TypeKind::List => RequirementForArgDirection::DirectionRequired,
-        ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified,
+        ast::TypeKind::Primitive => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified("primitives")
+        }
+        ast::TypeKind::Void => RequirementForArgDirection::CanOnlyBeInOrUnspecified("void"),
+        ast::TypeKind::Array => RequirementForArgDirection::DirectionRequired("arrays"),
+        ast::TypeKind::Map | ast::TypeKind::List => {
+            RequirementForArgDirection::DirectionRequired("maps")
+        }
+        ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified("strings"),
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
                     Some(ast::ItemKind::Parcelable) => {
-                        RequirementForArgDirection::DirectionRequired
+                        RequirementForArgDirection::DirectionRequired("parcelables")
                     }
                     Some(ast::ItemKind::Interface) => {
-                        RequirementForArgDirection::CanOnlyBeInOrUnspecified
+                        RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces")
                     }
                     Some(ast::ItemKind::Enum) => {
-                        RequirementForArgDirection::CanOnlyBeInOrUnspecified
+                        RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums")
                     }
                     None => RequirementForArgDirection::NoRequirement,
                 }

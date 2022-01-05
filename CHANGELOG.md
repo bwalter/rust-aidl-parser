@@ -5,6 +5,7 @@
 
 - Add Symbol::get_qualified_name()
 - Improve range info for generic types
+- Make a few errors more descriptive
 
 ## [0.8.0] - 2022-01-04
 

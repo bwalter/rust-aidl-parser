@@ -331,6 +331,7 @@ pub struct Annotation {
     pub key_values: HashMap<String, Option<String>>,
 }
 
+// TODO: include Android built-in types (like ParcelableHolder)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TypeKind {
@@ -339,7 +340,7 @@ pub enum TypeKind {
     Array,
     Map,
     List,
-    String,
+    String, // TODO: separate String and CharSequence
     Custom,
     Invalid,
 }
