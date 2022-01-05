@@ -8,4 +8,5 @@ Type(
   name: "doublegum",
   kind: custom,
   symbol_range: "...",
+  full_range: "...",
 )

@@ -10,6 +10,7 @@ Member(
     name: "TypeName",
     kind: custom,
     symbol_range: "...",
+    full_range: "...",
   ),
   value: Some("\"member value\""),
   annotations: [

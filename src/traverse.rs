@@ -118,18 +118,18 @@ where
 
     match ast.item {
         ast::Item::Interface(ref i) => {
-            f(Symbol::Interface(i))?;
+            f(Symbol::Interface(i, &ast.package))?;
             if let SymbolFilter::ItemsOnly = filter {
                 return ControlFlow::Continue(());
             }
 
             i.elements.iter().try_for_each(|el| match el {
                 ast::InterfaceElement::Method(m) => {
-                    f(Symbol::Method(m))?;
+                    f(Symbol::Method(m, i))?;
                     if let SymbolFilter::All = filter {
                         visit_type_helper!(&m.return_type, f);
                         m.args.iter().try_for_each(|arg| {
-                            f(Symbol::Arg(arg))?;
+                            f(Symbol::Arg(arg, m))?;
                             visit_type_helper!(&arg.arg_type, f);
                             ControlFlow::Continue(())
                         })?;
@@ -137,7 +137,7 @@ where
                     ControlFlow::Continue(())
                 }
                 ast::InterfaceElement::Const(c) => {
-                    f(Symbol::Const(c))?;
+                    f(Symbol::Const(c, i))?;
                     if let SymbolFilter::All = filter {
                         visit_type_helper!(&c.const_type, f);
                     }
@@ -146,13 +146,13 @@ where
             })?;
         }
         ast::Item::Parcelable(ref p) => {
-            f(Symbol::Parcelable(p))?;
+            f(Symbol::Parcelable(p, &ast.package))?;
             if let SymbolFilter::ItemsOnly = filter {
                 return ControlFlow::Continue(());
             }
 
             p.members.iter().try_for_each(|m| {
-                f(Symbol::Member(m))?;
+                f(Symbol::Member(m, p))?;
 
                 if let SymbolFilter::All = filter {
                     visit_type_helper!(&m.member_type, f);
@@ -162,13 +162,13 @@ where
             })?;
         }
         ast::Item::Enum(ref e) => {
-            f(Symbol::Enum(e))?;
+            f(Symbol::Enum(e, &ast.package))?;
             if let SymbolFilter::ItemsOnly = filter {
                 return ControlFlow::Continue(());
             }
 
             e.elements.iter().try_for_each(|el| {
-                f(Symbol::EnumElement(el))?;
+                f(Symbol::EnumElement(el, e))?;
                 ControlFlow::Continue(())
             })?;
         }

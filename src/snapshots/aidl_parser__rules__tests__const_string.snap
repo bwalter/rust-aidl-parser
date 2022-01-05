@@ -10,6 +10,7 @@ Const(
     name: "TypeName",
     kind: custom,
     symbol_range: "...",
+    full_range: "...",
   ),
   value: "\"const value\"",
   symbol_range: "...",

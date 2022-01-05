@@ -8,4 +8,5 @@ Type(
   name: "Map",
   kind: map,
   symbol_range: "...",
+  full_range: "...",
 )

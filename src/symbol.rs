@@ -6,14 +6,14 @@ use crate::ast;
 pub enum Symbol<'a> {
     Package(&'a ast::Package),
     Import(&'a ast::Import),
-    Interface(&'a ast::Interface),
-    Parcelable(&'a ast::Parcelable),
-    Enum(&'a ast::Enum),
-    Method(&'a ast::Method),
-    Arg(&'a ast::Arg),
-    Const(&'a ast::Const),
-    Member(&'a ast::Member),
-    EnumElement(&'a ast::EnumElement),
+    Interface(&'a ast::Interface, &'a ast::Package),
+    Parcelable(&'a ast::Parcelable, &'a ast::Package),
+    Enum(&'a ast::Enum, &'a ast::Package),
+    Method(&'a ast::Method, &'a ast::Interface),
+    Arg(&'a ast::Arg, &'a ast::Method),
+    Const(&'a ast::Const, &'a ast::Interface),
+    Member(&'a ast::Member, &'a ast::Parcelable),
+    EnumElement(&'a ast::EnumElement, &'a ast::Enum),
     Type(&'a ast::Type),
 }
 
@@ -22,15 +22,35 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Package(p) => Some(p.name.clone()),
             Symbol::Import(i) => Some(i.get_qualified_name()),
-            Symbol::Interface(i) => Some(i.name.clone()),
-            Symbol::Parcelable(p) => Some(p.name.clone()),
-            Symbol::Enum(e) => Some(e.name.clone()),
-            Symbol::Method(m) => Some(m.name.clone()),
-            Symbol::Arg(a) => a.name.clone(),
-            Symbol::Const(c) => Some(c.name.clone()),
-            Symbol::Member(m) => Some(m.name.clone()),
-            Symbol::EnumElement(e) => Some(e.name.clone()),
+            Symbol::Interface(i, _) => Some(i.name.clone()),
+            Symbol::Parcelable(p, _) => Some(p.name.clone()),
+            Symbol::Enum(e, _) => Some(e.name.clone()),
+            Symbol::Method(m, _) => Some(m.name.clone()),
+            Symbol::Arg(a, _) => a.name.clone(),
+            Symbol::Const(c, _) => Some(c.name.clone()),
+            Symbol::Member(m, _) => Some(m.name.clone()),
+            Symbol::EnumElement(e, _) => Some(e.name.clone()),
             Symbol::Type(t) => Some(t.name.clone()),
+        }
+    }
+
+    pub fn get_qualified_name(&self) -> Option<String> {
+        match self {
+            Symbol::Package(p) => Some(p.name.clone()),
+            Symbol::Import(i) => Some(i.get_qualified_name()),
+            Symbol::Interface(i, pkg) => Some(format!("{}.{}", pkg.name, i.name)),
+            Symbol::Parcelable(p, pkg) => Some(format!("{}.{}", pkg.name, p.name)),
+            Symbol::Enum(e, pkg) => Some(format!("{}.{}", pkg.name, e.name)),
+            Symbol::Method(m, i) => Some(format!("{}.{}", i.name, m.name)),
+            Symbol::Arg(a, _) => a.name.clone(),
+            Symbol::Const(c, i) => Some(format!("{}.{}", i.name, c.name)),
+            Symbol::Member(m, p) => Some(format!("{}.{}", p.name, m.name)),
+            Symbol::EnumElement(el, e) => Some(format!("{}.{}", e.name, el.name)),
+            Symbol::Type(t) => t
+                .definition
+                .as_ref()
+                .cloned()
+                .or_else(|| Some(t.name.clone())),
         }
     }
 
@@ -38,14 +58,14 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Package(p) => &p.symbol_range,
             Symbol::Import(i) => &i.symbol_range,
-            Symbol::Interface(i) => &i.symbol_range,
-            Symbol::Parcelable(p) => &p.symbol_range,
-            Symbol::Enum(e) => &e.symbol_range,
-            Symbol::Method(m) => &m.symbol_range,
-            Symbol::Arg(a) => &a.symbol_range,
-            Symbol::Const(c) => &c.symbol_range,
-            Symbol::Member(m) => &m.symbol_range,
-            Symbol::EnumElement(e) => &e.symbol_range,
+            Symbol::Interface(i, _) => &i.symbol_range,
+            Symbol::Parcelable(p, _) => &p.symbol_range,
+            Symbol::Enum(e, _) => &e.symbol_range,
+            Symbol::Method(m, _) => &m.symbol_range,
+            Symbol::Arg(a, _) => &a.symbol_range,
+            Symbol::Const(c, _) => &c.symbol_range,
+            Symbol::Member(m, _) => &m.symbol_range,
+            Symbol::EnumElement(e, _) => &e.symbol_range,
             Symbol::Type(t) => &t.symbol_range,
         }
     }
@@ -54,15 +74,15 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Package(p) => &p.full_range,
             Symbol::Import(i) => &i.full_range,
-            Symbol::Interface(i) => &i.full_range,
-            Symbol::Parcelable(p) => &p.full_range,
-            Symbol::Enum(e) => &e.full_range,
-            Symbol::Method(m) => &m.full_range,
-            Symbol::Arg(a) => &a.full_range,
-            Symbol::Const(c) => &c.full_range,
-            Symbol::Member(m) => &m.full_range,
-            Symbol::EnumElement(e) => &e.full_range,
-            Symbol::Type(t) => &t.symbol_range, // TODO: consider full range (might be different for generics)?
+            Symbol::Interface(i, _) => &i.full_range,
+            Symbol::Parcelable(p, _) => &p.full_range,
+            Symbol::Enum(e, _) => &e.full_range,
+            Symbol::Method(m, _) => &m.full_range,
+            Symbol::Arg(a, _) => &a.full_range,
+            Symbol::Const(c, _) => &c.full_range,
+            Symbol::Member(m, _) => &m.full_range,
+            Symbol::EnumElement(e, _) => &e.full_range,
+            Symbol::Type(t) => &t.full_range,
         }
     }
 
@@ -95,12 +115,12 @@ impl<'a> Symbol<'a> {
         }
 
         Some(match self {
-            Symbol::Package(_) => String::from("package"),
-            Symbol::Import(_) => String::from("import"),
-            Symbol::Interface(_) => String::from("interface"),
-            Symbol::Parcelable(_) => String::from("parcelable"),
-            Symbol::Enum(_) => String::from("enum"),
-            Symbol::Method(m) => {
+            Symbol::Package(..) => String::from("package"),
+            Symbol::Import(..) => String::from("import"),
+            Symbol::Interface(..) => String::from("interface"),
+            Symbol::Parcelable(..) => String::from("parcelable"),
+            Symbol::Enum(..) => String::from("enum"),
+            Symbol::Method(m, _) => {
                 format!(
                     "{}({})",
                     get_type_str(&m.return_type),
@@ -111,15 +131,15 @@ impl<'a> Symbol<'a> {
                         .join(", ")
                 )
             }
-            Symbol::Arg(a) => get_arg_str(a),
-            Symbol::Const(c) => format!("const {}", get_type_str(&c.const_type)),
-            Symbol::Member(m) => get_type_str(&m.member_type),
-            Symbol::EnumElement(_) => return None,
+            Symbol::Arg(a, _) => get_arg_str(a),
+            Symbol::Const(c, _) => format!("const {}", get_type_str(&c.const_type)),
+            Symbol::Member(m, _) => get_type_str(&m.member_type),
+            Symbol::EnumElement(..) => return None,
             Symbol::Type(t) => get_type_str(t),
         })
     }
 
-    pub fn get_signature(&self) -> Option<String> {
+    pub fn get_signature(&self) -> String {
         fn get_type_str(t: &ast::Type) -> String {
             if t.generic_types.is_empty() {
                 t.name.clone()
@@ -153,13 +173,13 @@ impl<'a> Symbol<'a> {
             format!("{}{}{}", direction_str, get_type_str(&a.arg_type), suffix)
         }
 
-        Some(match self {
+        match self {
             Symbol::Package(p) => format!("package {}", p.name),
             Symbol::Import(i) => format!("import {}", i.get_qualified_name()),
-            Symbol::Parcelable(p) => format!("parcelable {}", p.name),
-            Symbol::Interface(i) => format!("interface {}", i.name),
-            Symbol::Enum(e) => format!("enum {}", e.name),
-            Symbol::Method(m) => {
+            Symbol::Parcelable(p, _) => format!("parcelable {}", p.name),
+            Symbol::Interface(i, _) => format!("interface {}", i.name),
+            Symbol::Enum(e, _) => format!("enum {}", e.name),
+            Symbol::Method(m, _) => {
                 format!(
                     "{} {}({})",
                     get_type_str(&m.return_type),
@@ -171,11 +191,11 @@ impl<'a> Symbol<'a> {
                         .join(", ")
                 )
             }
-            Symbol::Arg(a) => get_arg_str(a),
-            Symbol::Const(c) => format!("const {} {}", get_type_str(&c.const_type), c.name),
-            Symbol::Member(m) => format!("{} {}", get_type_str(&m.member_type), m.name),
-            Symbol::EnumElement(el) => el.name.clone(),
+            Symbol::Arg(a, _) => get_arg_str(a),
+            Symbol::Const(c, _) => format!("const {} {}", get_type_str(&c.const_type), c.name),
+            Symbol::Member(m, _) => format!("{} {}", get_type_str(&m.member_type), m.name),
+            Symbol::EnumElement(el, _) => el.name.clone(),
             Symbol::Type(t) => get_type_str(t),
-        })
+        }
     }
 }

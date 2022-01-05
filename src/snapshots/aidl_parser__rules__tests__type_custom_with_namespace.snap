@@ -8,4 +8,5 @@ Type(
   name: "com.example.TypeName",
   kind: custom,
   symbol_range: "...",
+  full_range: "...",
 )

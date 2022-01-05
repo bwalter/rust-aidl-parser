@@ -11,6 +11,7 @@ Method(
     name: "void",
     kind: void,
     symbol_range: "...",
+    full_range: "...",
   ),
   args: [],
   annotations: [

@@ -1186,6 +1186,7 @@ mod tests {
                 generic_types: Vec::new(),
                 definition: None,
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 
@@ -1196,6 +1197,7 @@ mod tests {
                 generic_types: Vec::from([generic_type]),
                 definition: None,
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 
@@ -1206,6 +1208,7 @@ mod tests {
                 generic_types: generic_type.map(|t| [t].into()).unwrap_or_default(),
                 definition: None,
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 
@@ -1221,6 +1224,7 @@ mod tests {
                     .unwrap_or_default(),
                 definition: None,
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 
@@ -1231,6 +1235,7 @@ mod tests {
                 generic_types: Vec::new(),
                 definition: Some(def.into()),
                 symbol_range: create_range(line),
+                full_range: create_range(line),
             }
         }
 

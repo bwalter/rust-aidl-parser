@@ -10,6 +10,7 @@ Member(
     name: "TypeName",
     kind: custom,
     symbol_range: "...",
+    full_range: "...",
   ),
   doc: Some("Member documentation"),
   symbol_range: "...",

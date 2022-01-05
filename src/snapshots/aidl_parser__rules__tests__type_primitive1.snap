@@ -8,4 +8,5 @@ Type(
   name: "double",
   kind: primitive,
   symbol_range: "...",
+  full_range: "...",
 )

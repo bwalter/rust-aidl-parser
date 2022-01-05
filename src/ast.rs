@@ -211,6 +211,7 @@ pub struct Enum {
     pub full_range: Range,
     pub symbol_range: Range,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Const {
     pub name: String,
@@ -352,6 +353,7 @@ pub struct Type {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub definition: Option<ItemKey>,
     pub symbol_range: Range,
+    pub full_range: Range,
 }
 
 impl Type {
@@ -368,26 +370,43 @@ impl Type {
             generic_types: Vec::new(),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, start, end),
         }
     }
 
-    pub fn array(param: Type, lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+    pub fn array(
+        param: Type,
+        lookup: &line_col::LineColLookup,
+        start: usize,
+        end: usize,
+        fr_start: usize,
+        fr_end: usize,
+    ) -> Self {
         Type {
             name: "Array".to_owned(),
             kind: TypeKind::Array,
             generic_types: Vec::from([param]),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, fr_start, fr_end),
         }
     }
 
-    pub fn list(param: Type, lookup: &line_col::LineColLookup, start: usize, end: usize) -> Self {
+    pub fn list(
+        param: Type,
+        lookup: &line_col::LineColLookup,
+        start: usize,
+        end: usize,
+        fr_start: usize,
+        fr_end: usize,
+    ) -> Self {
         Type {
             name: "List".to_owned(),
             kind: TypeKind::List,
             generic_types: Vec::from([param]),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, fr_start, fr_end),
         }
     }
 
@@ -398,6 +417,7 @@ impl Type {
             generic_types: Vec::new(),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, start, end),
         }
     }
 
@@ -407,6 +427,8 @@ impl Type {
         lookup: &line_col::LineColLookup,
         start: usize,
         end: usize,
+        fr_start: usize,
+        fr_end: usize,
     ) -> Self {
         Type {
             name: "Map".to_owned(),
@@ -414,6 +436,7 @@ impl Type {
             generic_types: Vec::from([key_param, value_param]),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, fr_start, fr_end),
         }
     }
 
@@ -424,6 +447,7 @@ impl Type {
             generic_types: Vec::new(),
             definition: None,
             symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, start, end),
         }
     }
 }

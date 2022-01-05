@@ -325,14 +325,14 @@ TypeString: ast::Type = {
 }
 
 TypeArray: ast::Type = {
-    <p1:@L> <p:Type> "[" "]" <p2:@L> => {
-        ast::Type::array(p, &lookup, p1, p2)
+    <fp1:@L> <sp1:@L> <p:Type> <sp2:@R> "[" "]" <fp2:@R> => {
+        ast::Type::array(p, &lookup, sp1, sp2, fp1, fp2)
     },
 }
 
 TypeList: ast::Type = {
-    <p1:@L> LIST "<" <p:Type> ">" <p2:@R> => {
-        ast::Type::list(p, &lookup, p1, p2)
+    <fp1:@L> <sp1:@L> LIST <sp2:@R> "<" <p:Type> ">" <fp2:@R> => {
+        ast::Type::list(p, &lookup, sp1, sp2, fp1, fp2)
     },
     <p1:@L> LIST <p2:@R> => {
         ast::Type::non_generic_list(&lookup, p1, p2)
@@ -340,10 +340,10 @@ TypeList: ast::Type = {
 }
 
 TypeMap: ast::Type = {
-    <p1:@L> MAP "<"
+    <fp1:@L> <sp1:@L> MAP <sp2:@R> "<"
         <k:Type> "," <v:Type>
-    ">" <p2:@R> => {
-        ast::Type::map(k, v, &lookup, p1, p2)
+    ">" <fp2:@R> => {
+        ast::Type::map(k, v, &lookup, sp1, sp2, fp1, fp2)
     },
     <p1:@L> MAP <p2:@R> => {
         ast::Type::non_generic_map(&lookup, p1, p2)
@@ -353,12 +353,14 @@ TypeMap: ast::Type = {
 // Unresolved custom type (should be an interface, a parcelable or an enum)
 TypeCustom: ast::Type = {
     <p1:@L> <n:QualifiedName> <p2:@R> => {
+        let range = ast::Range::new(&lookup, p1, p2);
         ast::Type {
             name: n.to_owned(),
             kind: ast::TypeKind::Custom,
             generic_types: vec![],
             definition: None,
-            symbol_range: ast::Range::new(&lookup, p1, p2),
+            symbol_range: range.clone(),
+            full_range: range,
         }
     }
 }

@@ -12,6 +12,7 @@ Type(
       name: "Key",
       kind: custom,
       symbol_range: "...",
+      full_range: "...",
     ),
     Type(
       name: "List",
@@ -21,10 +22,13 @@ Type(
           name: "V",
           kind: custom,
           symbol_range: "...",
+          full_range: "...",
         ),
       ],
       symbol_range: "...",
+      full_range: "...",
     ),
   ],
   symbol_range: "...",
+  full_range: "...",
 )

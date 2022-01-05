@@ -8,4 +8,5 @@ Type(
   name: "List",
   kind: list,
   symbol_range: "...",
+  full_range: "...",
 )

@@ -10,7 +10,6 @@ build = "src/build.rs"
 
 [dependencies]
 anyhow = "1.0"
-derive_builder = "0.10"
 lalrpop-util = { version = "0.19", features = ["lexer"] }
 line-col = { version = "0.2", features = ["grapheme-clusters"] }
 regex = "1.5"

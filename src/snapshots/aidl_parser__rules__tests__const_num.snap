@@ -10,6 +10,7 @@ Const(
     name: "int",
     kind: primitive,
     symbol_range: "...",
+    full_range: "...",
   ),
   value: "123",
   symbol_range: "...",

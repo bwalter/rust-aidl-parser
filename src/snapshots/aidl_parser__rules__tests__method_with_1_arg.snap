@@ -11,6 +11,7 @@ Method(
     name: "TypeName",
     kind: custom,
     symbol_range: "...",
+    full_range: "...",
   ),
   args: [
     Arg(
@@ -19,6 +20,7 @@ Method(
         name: "ArgType",
         kind: custom,
         symbol_range: "...",
+        full_range: "...",
       ),
       symbol_range: "...",
       full_range: "...",

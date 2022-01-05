@@ -12,7 +12,9 @@ Type(
       name: "float",
       kind: primitive,
       symbol_range: "...",
+      full_range: "...",
     ),
   ],
   symbol_range: "...",
+  full_range: "...",
 )

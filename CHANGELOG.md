@@ -3,6 +3,9 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Add Symbol::get_qualified_name()
+- Improve range info for generic types
+
 ## [0.8.0] - 2022-01-04
 
 - Allow AST types to be deserialized and adjust case
