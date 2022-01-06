@@ -85,7 +85,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid item - Unrecognized token `oops_interface`\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
+            message: "Invalid item - Unrecognized token `oops_interface`.\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -222,7 +222,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid interface element - Unrecognized token `;`\nExpected one of \"(\"",
+            message: "Invalid interface element - Unrecognized token `;`.\nExpected \"(\"",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -230,7 +230,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid interface element - Unrecognized token `;`\nExpected one of \")\", \",\", \".\", \">\" or IDENT",
+            message: "Invalid interface element - Unrecognized token `;`.\nExpected one of \")\", \",\", \".\", \">\" or IDENT",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -284,7 +284,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid member - Unrecognized token `;`\nExpected one of \",\", \".\", \">\" or IDENT",
+            message: "Invalid member - Unrecognized token `;`.\nExpected one of \",\", \".\", \">\" or IDENT",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -342,7 +342,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid enum element - Unrecognized token `=`\nExpected one of \"{\", BOOLEAN, FLOAT or QUOTED_STRING",
+            message: "Invalid enum element - Unrecognized token `=`.\nExpected one of \"{\", BOOLEAN, FLOAT or QUOTED_STRING",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -350,7 +350,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid enum element - Unrecognized token `0843`\nExpected one of \"}\" or IDENT",
+            message: "Invalid enum element - Unrecognized token `0843`.\nExpected one of \"}\" or IDENT",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],

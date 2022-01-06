@@ -104,7 +104,7 @@ fn test_parse_error() -> Result<()> {
             line_col: (1, 25),
           ),
         ),
-        message: "Invalid item - Unrecognized token `completly`\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
+        message: "Invalid item - Unrecognized token `completly`.\nExpected one of ANNOTATION, ENUM, IMPORT, INTERFACE or PARCELABLE",
         context_message: Some("unrecognized token"),
         hint: None,
         related_infos: [],
