@@ -303,6 +303,7 @@ pub(crate) Type: ast::Type = {
     TypeVoid,
     TypePrimitive,
     TypeString,
+    TypeCharSequence,
     TypeArray,
     TypeList,
     TypeMap,
@@ -322,6 +323,11 @@ TypePrimitive: ast::Type = {
 TypeString: ast::Type = {
     <p1:@L> <n:STRING> <p2:@R> =>
         ast::Type::simple_type(n, ast::TypeKind::String, lookup, p1, p2)
+}
+
+TypeCharSequence: ast::Type = {
+    <p1:@L> <n:CHAR_SEQUENCE> <p2:@R> =>
+        ast::Type::simple_type(n, ast::TypeKind::CharSequence, lookup, p1, p2)
 }
 
 TypeArray: ast::Type = {
@@ -422,7 +428,8 @@ match {
     r"(inout|in|out)" => DIRECTION,
     "void" => VOID,
     r"(byte|short|int|long|float|double|boolean|char)" => PRIMITIVE,
-    r"(String|CharSequence)" => STRING,
+    "String" => STRING,
+    "CharSequence" => CHAR_SEQUENCE,
     "List" => LIST,
     "Map" => MAP,
     

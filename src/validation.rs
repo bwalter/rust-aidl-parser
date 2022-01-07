@@ -474,6 +474,7 @@ fn get_requirement_for_arg_direction(
             RequirementForArgDirection::DirectionRequired("maps")
         }
         ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified("strings"),
+        ast::TypeKind::CharSequence => RequirementForArgDirection::CanOnlyBeInOrUnspecified("CharSequence"),
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
@@ -504,7 +505,8 @@ fn check_array_element(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match type_.kind {
+    let ok = match type_.kind {
+        // Not OK (custom diagnostic and return)
         ast::TypeKind::Array => {
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Error,
@@ -516,39 +518,37 @@ fn check_array_element(
             });
             return;
         }
-        ast::TypeKind::Invalid => return,   // not applicable
-        ast::TypeKind::Primitive => return, // OK
-        ast::TypeKind::String => {
-            // String: OK, CharSequence: error
-            if type_.name == "String" {
-                return;
-            }
-        }
-        ast::TypeKind::List => (),
-        ast::TypeKind::Map => (),
-        ast::TypeKind::Void => (),
+        ast::TypeKind::Invalid => true,   // not applicable
+        ast::TypeKind::Primitive => true, // OK
+        ast::TypeKind::String => true,  // OK
+        ast::TypeKind::CharSequence => false,
+        ast::TypeKind::List => false,
+        ast::TypeKind::Map => false,
+        ast::TypeKind::Void => false,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => return, // OK: it is allowed for Parcelable...
-                    Some(ast::ItemKind::Interface) => (),      // "Binder" type cannot be an array
-                    Some(ast::ItemKind::Enum) => return,       // OK: enum is backed by a primitive
-                    None => return,                            // we don't know
+                    Some(ast::ItemKind::Parcelable) => true, // OK: it is allowed for Parcelable...
+                    Some(ast::ItemKind::Interface) => false,      // "Binder" type cannot be an array
+                    Some(ast::ItemKind::Enum) => true,       // OK: enum is backed by a primitive
+                    None => true,                            // we don't know
                 }
             } else {
-                return; // we don't know
+                true // we don't know
             }
         }
-    }
+    };
 
-    diagnostics.push(Diagnostic {
-        kind: DiagnosticKind::Error,
-        message: format!("Invalid array element `{}`", type_.name),
-        context_message: Some("invalid parameter".to_owned()),
-        range: type_.symbol_range.clone(),
-        hint: Some("must be a primitive, an enum, a String, a parcelable or a IBinder".to_owned()),
-        related_infos: Vec::new(),
-    });
+    if !ok {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            message: format!("Invalid array element `{}`", type_.name),
+            context_message: Some("invalid parameter".to_owned()),
+            range: type_.symbol_range.clone(),
+            hint: Some("must be a primitive, an enum, a String, a parcelable or a IBinder".to_owned()),
+            related_infos: Vec::new(),
+        });
+    }
 }
 
 // List<T> supports parcelable/union, String, IBinder, and ParcelFileDescriptor
@@ -558,43 +558,41 @@ fn check_list_element(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match type_.kind {
-        ast::TypeKind::Array => (),
-        ast::TypeKind::Invalid => return, // we don't know
-        ast::TypeKind::List => (),
-        ast::TypeKind::Map => (),
-        ast::TypeKind::Primitive => (),
-        ast::TypeKind::String => {
-            // String: OK, CharSequence: error
-            if type_.name == "String" {
-                return;
-            }
-        }
-        ast::TypeKind::Void => (),
+    let ok = match type_.kind {
+        ast::TypeKind::Array => false,
+        ast::TypeKind::Invalid => true, // we don't know
+        ast::TypeKind::List => false,
+        ast::TypeKind::Map => false,
+        ast::TypeKind::Primitive => false,
+        ast::TypeKind::String => true,
+        ast::TypeKind::CharSequence => false,
+        ast::TypeKind::Void => false,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => return, // OK
-                    Some(ast::ItemKind::Interface) => (),
-                    Some(ast::ItemKind::Enum) => (), // enum is backed by a primitive
-                    None => return,                  // we don't know
+                    Some(ast::ItemKind::Parcelable) => true, // OK
+                    Some(ast::ItemKind::Interface) => false,
+                    Some(ast::ItemKind::Enum) => false, // enum is backed by a primitive
+                    None => true,                  // we don't know
                 }
             } else {
-                return; // we don't know
+                true // we don't know
             }
         }
-    }
+    };
 
-    diagnostics.push(Diagnostic {
-        kind: DiagnosticKind::Error,
-        message: format!("Invalid list element `{}`", type_.name),
-        context_message: Some("invalid element".to_owned()),
-        range: type_.symbol_range.clone(),
-        hint: Some(
-            "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor".to_owned(),
-        ),
-        related_infos: Vec::new(),
-    });
+    if !ok {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            message: format!("Invalid list element `{}`", type_.name),
+            context_message: Some("invalid element".to_owned()),
+            range: type_.symbol_range.clone(),
+            hint: Some(
+                "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor".to_owned(),
+            ),
+            related_infos: Vec::new(),
+        });
+    }
 }
 
 // The type of key in map must be String
@@ -624,36 +622,39 @@ fn check_map_value(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match type_.kind {
-        ast::TypeKind::Array => return,   // OK
-        ast::TypeKind::Invalid => return, // we don't know
-        ast::TypeKind::List => return,    // OK
-        ast::TypeKind::Map => return,     // OK
-        ast::TypeKind::String => return,  // OK
-        ast::TypeKind::Primitive => (),
-        ast::TypeKind::Void => (),
+    let ok = match type_.kind {
+        ast::TypeKind::Array => true,   // OK
+        ast::TypeKind::Invalid => true, // we don't know
+        ast::TypeKind::List => true,    // OK
+        ast::TypeKind::Map => true,     // OK
+        ast::TypeKind::String => true,  // OK
+        ast::TypeKind::CharSequence => true,  // OK
+        ast::TypeKind::Primitive => false,
+        ast::TypeKind::Void => false,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => return,
-                    Some(ast::ItemKind::Interface) => return,
-                    Some(ast::ItemKind::Enum) => (), // enum is backed by a primitive
-                    None => return,                  // we don't know
+                    Some(ast::ItemKind::Parcelable) => true,
+                    Some(ast::ItemKind::Interface) => true,
+                    Some(ast::ItemKind::Enum) => false, // enum is backed by a primitive
+                    None => true,                  // we don't know
                 }
             } else {
-                return; // we don't know
+                true // we don't know
             }
         }
-    }
+    };
 
-    diagnostics.push(Diagnostic {
-        kind: DiagnosticKind::Error,
-        message: format!("Invalid map value `{}`", type_.name),
-        context_message: Some("invalid map value".to_owned()),
-        range: type_.symbol_range.clone(),
-        hint: Some("cannot not be a primitive".to_owned()),
-        related_infos: Vec::new(),
-    });
+    if !ok {
+        diagnostics.push(Diagnostic {
+            kind: DiagnosticKind::Error,
+            message: format!("Invalid map value `{}`", type_.name),
+            context_message: Some("invalid map value".to_owned()),
+            range: type_.symbol_range.clone(),
+            hint: Some("cannot not be a primitive".to_owned()),
+            related_infos: Vec::new(),
+        });
+    }
 }
 
 #[cfg(test)]
@@ -717,7 +718,7 @@ mod tests {
         // Valid arrays
         for t in [
             utils::create_int(0),
-            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_string(0),
             utils::create_custom_type("test.TestParcelable", 0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
@@ -743,8 +744,8 @@ mod tests {
             utils::create_list(None, 0),
             utils::create_map(None, 0),
             utils::create_custom_type("test.TestInterface", 0),
-            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
-            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            utils::create_char_sequence(0),
+            utils::create_void(0),
         ]
         .into_iter()
         {
@@ -757,7 +758,7 @@ mod tests {
 
         // Valid list
         for t in [
-            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_string(0),
             utils::create_custom_type("test.TestParcelable", 0),
         ]
         .into_iter()
@@ -780,8 +781,8 @@ mod tests {
 
         // Invalid lists
         for t in [
-            utils::create_simple_type("void", ast::TypeKind::Void, 0),
-            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_void(0),
+            utils::create_char_sequence(0),
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
@@ -799,7 +800,7 @@ mod tests {
 
         // Valid map
         for vt in [
-            utils::create_simple_type("String", ast::TypeKind::String, 0),
+            utils::create_string(0),
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
@@ -810,7 +811,7 @@ mod tests {
         {
             let map = utils::create_map(
                 Some((
-                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                    utils::create_string(0),
                     vt,
                 )),
                 0,
@@ -832,22 +833,21 @@ mod tests {
 
         // Invalid map keys
         for kt in [
-            utils::create_simple_type("void", ast::TypeKind::Void, 0),
-            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_void(0),
+            utils::create_char_sequence(0),
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
             utils::create_custom_type("test.TestParcelable", 0),
             utils::create_custom_type("test.TestInterface", 0),
             utils::create_custom_type("test.TestEnum", 0),
-            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
         ]
         .into_iter()
         {
             let map = utils::create_map(
                 Some((
                     kt,
-                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                    utils::create_string(0),
                 )),
                 0,
             );
@@ -859,14 +859,14 @@ mod tests {
 
         // Invalid map values
         for vt in [
-            utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            utils::create_void(0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
         .into_iter()
         {
             let map = utils::create_map(
                 Some((
-                    utils::create_simple_type("String", ast::TypeKind::String, 0),
+                    utils::create_string(0),
                     vt,
                 )),
                 0,
@@ -928,7 +928,7 @@ mod tests {
         let void_method = ast::Method {
             oneway: false,
             name: "test".into(),
-            return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            return_type: utils::create_void(0),
             args: Vec::new(),
             annotations: Vec::new(),
             value: None,
@@ -1017,7 +1017,7 @@ mod tests {
         let base_method = ast::Method {
             oneway: false,
             name: "testMethod".into(),
-            return_type: utils::create_simple_type("void", ast::TypeKind::Void, 0),
+            return_type: utils::create_void(0),
             args: Vec::new(),
             value: None,
             annotations: Vec::new(),
@@ -1037,8 +1037,8 @@ mod tests {
         // Primitives, String and Interfaces can only be in or unspecified
         for t in [
             utils::create_int(0),
-            utils::create_simple_type("String", ast::TypeKind::String, 0),
-            utils::create_simple_type("CharSequence", ast::TypeKind::String, 0),
+            utils::create_string(0),
+            utils::create_char_sequence(0),
             utils::create_custom_type("test.TestInterface", 0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
@@ -1179,7 +1179,19 @@ mod tests {
             create_simple_type("int", ast::TypeKind::Primitive, line)
         }
 
-        pub fn create_simple_type(
+        pub fn create_void(line: usize) -> ast::Type {
+            create_simple_type("void", ast::TypeKind::Void, line)            
+        }
+
+        pub fn create_string(line: usize) -> ast::Type {
+            create_simple_type("String", ast::TypeKind::String, line)            
+        }
+
+        pub fn create_char_sequence(line: usize) -> ast::Type {
+            create_simple_type("CharSequence", ast::TypeKind::CharSequence, line)            
+        }
+
+        fn create_simple_type(
             name: &'static str,
             kind: ast::TypeKind,
             line: usize,

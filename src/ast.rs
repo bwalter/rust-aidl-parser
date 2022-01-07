@@ -340,7 +340,8 @@ pub enum TypeKind {
     Array,
     Map,
     List,
-    String, // TODO: separate String and CharSequence
+    String,
+    CharSequence,
     Custom,
     Invalid,
 }

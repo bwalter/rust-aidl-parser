@@ -1,0 +1,12 @@
+---
+source: src/rules.rs
+assertion_line: 578
+expression: res
+
+---
+Type(
+  name: "CharSequence",
+  kind: char_sequence,
+  symbol_range: "...",
+  full_range: "...",
+)

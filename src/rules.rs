@@ -565,6 +565,22 @@ mod tests {
     }
 
     #[test]
+    fn test_type_string() -> Result<()> {
+        let input = "String";
+        assert_parser!(input, rules::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_char_sequence() -> Result<()> {
+        let input = "CharSequence";
+        assert_parser!(input, rules::aidl::TypeParser::new());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_type_custom() -> Result<()> {
         let input = "TypeName";
         assert_parser!(input, rules::aidl::TypeParser::new());

@@ -1,0 +1,12 @@
+---
+source: src/rules.rs
+assertion_line: 570
+expression: res
+
+---
+Type(
+  name: "String",
+  kind: string,
+  symbol_range: "...",
+  full_range: "...",
+)
