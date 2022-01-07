@@ -6,9 +6,9 @@ expression: res
 ---
 Parcelable(
   name: "Tomato",
-  members: [
-    Member(
-      name: "member1",
+  fields: [
+    Field(
+      name: "field1",
       type: Type(
         name: "int",
         kind: primitive,
@@ -18,8 +18,8 @@ Parcelable(
       symbol_range: "...",
       full_range: "...",
     ),
-    Member(
-      name: "member3",
+    Field(
+      name: "field3",
       type: Type(
         name: "String",
         kind: string,

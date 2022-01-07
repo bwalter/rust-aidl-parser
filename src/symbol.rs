@@ -12,7 +12,7 @@ pub enum Symbol<'a> {
     Method(&'a ast::Method, &'a ast::Interface),
     Arg(&'a ast::Arg, &'a ast::Method),
     Const(&'a ast::Const, &'a ast::Interface),
-    Member(&'a ast::Member, &'a ast::Parcelable),
+    Field(&'a ast::Field, &'a ast::Parcelable),
     EnumElement(&'a ast::EnumElement, &'a ast::Enum),
     Type(&'a ast::Type),
 }
@@ -28,7 +28,7 @@ impl<'a> Symbol<'a> {
             Symbol::Method(m, _) => Some(m.name.clone()),
             Symbol::Arg(a, _) => a.name.clone(),
             Symbol::Const(c, _) => Some(c.name.clone()),
-            Symbol::Member(m, _) => Some(m.name.clone()),
+            Symbol::Field(m, _) => Some(m.name.clone()),
             Symbol::EnumElement(e, _) => Some(e.name.clone()),
             Symbol::Type(t) => Some(t.name.clone()),
         }
@@ -44,7 +44,7 @@ impl<'a> Symbol<'a> {
             Symbol::Method(m, i) => Some(format!("{}::{}", i.name, m.name)),
             Symbol::Arg(a, _) => a.name.clone(),
             Symbol::Const(c, i) => Some(format!("{}::{}", i.name, c.name)),
-            Symbol::Member(m, p) => Some(format!("{}::{}", p.name, m.name)),
+            Symbol::Field(m, p) => Some(format!("{}::{}", p.name, m.name)),
             Symbol::EnumElement(el, e) => Some(format!("{}::{}", e.name, el.name)),
             Symbol::Type(t) => t
                 .definition
@@ -64,7 +64,7 @@ impl<'a> Symbol<'a> {
             Symbol::Method(m, _) => &m.symbol_range,
             Symbol::Arg(a, _) => &a.symbol_range,
             Symbol::Const(c, _) => &c.symbol_range,
-            Symbol::Member(m, _) => &m.symbol_range,
+            Symbol::Field(m, _) => &m.symbol_range,
             Symbol::EnumElement(e, _) => &e.symbol_range,
             Symbol::Type(t) => &t.symbol_range,
         }
@@ -80,7 +80,7 @@ impl<'a> Symbol<'a> {
             Symbol::Method(m, _) => &m.full_range,
             Symbol::Arg(a, _) => &a.full_range,
             Symbol::Const(c, _) => &c.full_range,
-            Symbol::Member(m, _) => &m.full_range,
+            Symbol::Field(m, _) => &m.full_range,
             Symbol::EnumElement(e, _) => &e.full_range,
             Symbol::Type(t) => &t.full_range,
         }
@@ -133,7 +133,7 @@ impl<'a> Symbol<'a> {
             }
             Symbol::Arg(a, _) => get_arg_str(a),
             Symbol::Const(c, _) => format!("const {}", get_type_str(&c.const_type)),
-            Symbol::Member(m, _) => get_type_str(&m.member_type),
+            Symbol::Field(m, _) => get_type_str(&m.field_type),
             Symbol::EnumElement(..) => return None,
             Symbol::Type(t) => get_type_str(t),
         })
@@ -193,7 +193,7 @@ impl<'a> Symbol<'a> {
             }
             Symbol::Arg(a, _) => get_arg_str(a),
             Symbol::Const(c, _) => format!("const {} {}", get_type_str(&c.const_type), c.name),
-            Symbol::Member(m, _) => format!("{} {}", get_type_str(&m.member_type), m.name),
+            Symbol::Field(m, _) => format!("{} {}", get_type_str(&m.field_type), m.name),
             Symbol::EnumElement(el, _) => el.name.clone(),
             Symbol::Type(t) => get_type_str(t),
         }

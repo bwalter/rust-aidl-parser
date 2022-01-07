@@ -245,11 +245,11 @@ mod tests {
     fn test_parcelable() -> Result<()> {
         let input = r#"parcelable Tomato {
             /**
-             * member1 documentation
+             * field1 documentation
              */
-            int member1;
+            int field1;
     
-            String member2; // inline comment
+            String field2; // inline comment
         }"#;
         assert_parser!(input, rules::aidl::ParcelableParser::new());
 
@@ -269,9 +269,9 @@ mod tests {
     #[test]
     fn test_parcelable_with_errors() -> Result<()> {
         let input = r#"parcelable Tomato {
-            int member1;
-            wrongmember3;
-            String member3;
+            int field1;
+            wrongfield3;
+            String field3;
         }"#;
         let mut diagnostics = Vec::new();
         assert_parser!(
@@ -284,7 +284,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid member - Unrecognized token `;`.\nExpected one of \",\", \".\", \">\" or IDENT",
+            message: "Invalid field - Unrecognized token `;`.\nExpected one of \",\", \".\", \">\" or IDENT",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -480,35 +480,35 @@ mod tests {
     }
 
     #[test]
-    fn test_member() -> Result<()> {
-        let input = "TypeName memberName ;";
-        assert_parser!(input, rules::aidl::MemberParser::new());
+    fn test_field() -> Result<()> {
+        let input = "TypeName fieldName ;";
+        assert_parser!(input, rules::aidl::FieldParser::new());
         Ok(())
     }
 
     #[test]
-    fn test_member_with_value() -> Result<()> {
-        let input = "TypeName memberName = \"member value\";";
-        assert_parser!(input, rules::aidl::MemberParser::new());
+    fn test_field_with_value() -> Result<()> {
+        let input = "TypeName fieldName = \"field value\";";
+        assert_parser!(input, rules::aidl::FieldParser::new());
 
         Ok(())
     }
 
     #[test]
-    fn test_member_with_javadoc() -> Result<()> {
+    fn test_field_with_javadoc() -> Result<()> {
         let input = r#"/**
-             * Member documentation
+             * Field documentation
              */
-            TypeName memberName;"#;
-        assert_parser!(input, rules::aidl::MemberParser::new());
+            TypeName fieldName;"#;
+        assert_parser!(input, rules::aidl::FieldParser::new());
 
         Ok(())
     }
 
     #[test]
-    fn test_member_with_annotation() -> Result<()> {
-        let input = "@AnnotationName TypeName memberName = \"member value\";";
-        assert_parser!(input, rules::aidl::MemberParser::new());
+    fn test_field_with_annotation() -> Result<()> {
+        let input = "@AnnotationName TypeName fieldName = \"field value\";";
+        assert_parser!(input, rules::aidl::FieldParser::new());
 
         Ok(())
     }

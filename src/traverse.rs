@@ -151,11 +151,11 @@ where
                 return ControlFlow::Continue(());
             }
 
-            p.members.iter().try_for_each(|m| {
-                f(Symbol::Member(m, p))?;
+            p.fields.iter().try_for_each(|m| {
+                f(Symbol::Field(m, p))?;
 
                 if let SymbolFilter::All = filter {
-                    visit_type_helper!(&m.member_type, f);
+                    visit_type_helper!(&m.field_type, f);
                 }
 
                 ControlFlow::Continue(())
@@ -226,8 +226,8 @@ pub fn walk_types<F: FnMut(&ast::Type)>(ast: &ast::Aidl, mut f: F) {
             });
         }
         ast::Item::Parcelable(ref p) => {
-            p.members.iter().for_each(|m| {
-                visit_type_helper(&m.member_type);
+            p.fields.iter().for_each(|m| {
+                visit_type_helper(&m.field_type);
             });
         }
         ast::Item::Enum(_) => (),
@@ -255,8 +255,8 @@ pub(crate) fn walk_types_mut<F: FnMut(&mut ast::Type)>(ast: &mut ast::Aidl, mut 
             });
         }
         ast::Item::Parcelable(ref mut p) => {
-            p.members.iter_mut().for_each(|m| {
-                visit_type_helper(&mut m.member_type);
+            p.fields.iter_mut().for_each(|m| {
+                visit_type_helper(&mut m.field_type);
             });
         }
         ast::Item::Enum(_) => (),

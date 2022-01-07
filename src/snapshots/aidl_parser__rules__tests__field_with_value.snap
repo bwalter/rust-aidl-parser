@@ -1,17 +1,18 @@
 ---
 source: src/rules.rs
-assertion_line: 485
+assertion_line: 492
 expression: res
 
 ---
-Member(
-  name: "memberName",
+Field(
+  name: "fieldName",
   type: Type(
     name: "TypeName",
     kind: custom,
     symbol_range: "...",
     full_range: "...",
   ),
+  value: Some("\"field value\""),
   symbol_range: "...",
   full_range: "...",
 )

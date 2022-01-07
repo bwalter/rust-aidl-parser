@@ -6,21 +6,21 @@ expression: res
 ---
 Parcelable(
   name: "Tomato",
-  members: [
-    Member(
-      name: "member1",
+  fields: [
+    Field(
+      name: "field1",
       type: Type(
         name: "int",
         kind: primitive,
         symbol_range: "...",
         full_range: "...",
       ),
-      doc: Some("member1 documentation"),
+      doc: Some("field1 documentation"),
       symbol_range: "...",
       full_range: "...",
     ),
-    Member(
-      name: "member2",
+    Field(
+      name: "field2",
       type: Type(
         name: "String",
         kind: string,

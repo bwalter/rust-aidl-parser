@@ -191,7 +191,7 @@ pub struct Interface {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Parcelable {
     pub name: String,
-    pub members: Vec<Member>,
+    pub fields: Vec<Field>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -293,10 +293,10 @@ impl fmt::Display for Direction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Member {
+pub struct Field {
     pub name: String,
     #[serde(rename = "type")]
-    pub member_type: Type,
+    pub field_type: Type,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -307,9 +307,9 @@ pub struct Member {
     pub full_range: Range,
 }
 
-impl Member {
+impl Field {
     pub fn get_signature(&self) -> String {
-        format!("{} {}", self.member_type.name, self.name,)
+        format!("{} {}", self.field_type.name, self.name,)
     }
 }
 

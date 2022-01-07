@@ -115,13 +115,13 @@ OptInterfaceElement: Option<ast::InterfaceElement> = {
 pub(crate) Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableMember*> "}" <fp2:@R> => {
-        // Convert Vec<Option<Member>> into Vec<Member>
-        let members: Vec<ast::Member> = v.into_iter().flatten().collect();
+    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableField*> "}" <fp2:@R> => {
+        // Convert Vec<Option<Field>> into Vec<Field>
+        let fields: Vec<ast::Field> = v.into_iter().flatten().collect();
 
         ast::Parcelable {
             name: s.into(),
-            members,
+            fields,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
             full_range: ast::Range::new(&lookup, fp1, fp2),
@@ -130,11 +130,11 @@ pub(crate) Parcelable: ast::Parcelable = {
     }
 }
 
-// Parcelable member
-OptParcelableMember: Option<ast::Member> = {
-    <m:Member> => Some(m),
+// Parcelable field
+OptParcelableField: Option<ast::Field> = {
+    <m:Field> => Some(m),
     ! =>? {
-        if let Some(d) = Diagnostic::from_error_recovery("Invalid member", lookup, <>) {
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid field", lookup, <>) {
             diagnostics.push(d);
         }
         Ok(None)
@@ -261,17 +261,17 @@ pub(crate) Const: ast::Const = {
     },
 }
 
-// e.g. @Annotation String myMember;
-pub(crate) Member: ast::Member = {
+// e.g. @Annotation String myField;
+pub(crate) Field: ast::Field = {
     <p0:@L>
     <annotations:AnnotationList>
     <fp1:@L> <t:Type>
     <sp1:@L> <n:IDENT> <sp2:@R>
     <v:("=" <Value>)?>
     <fp2:@R> ";" => {
-        ast::Member {
+        ast::Field {
             name: n.to_owned(),
-            member_type: t,
+            field_type: t,
             value: v.map(str::to_owned),
             annotations,
             doc: javadoc::get_javadoc(input, p0),
