@@ -9,7 +9,7 @@ Method(
   name: "myMethod",
   return_type: Type(
     name: "TypeName",
-    kind: custom,
+    kind: unresolved,
     symbol_range: "...",
     full_range: "...",
   ),
@@ -18,7 +18,7 @@ Method(
       name: Some("arg"),
       type: Type(
         name: "ArgType",
-        kind: custom,
+        kind: unresolved,
         symbol_range: "...",
         full_range: "...",
       ),

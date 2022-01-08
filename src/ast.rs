@@ -345,8 +345,8 @@ pub enum TypeKind {
     IBinder,
     FileDescriptor,
     ParcelFileDescriptor, 
-    Custom,
-    Invalid,
+    Resolved(String, Option<ItemKind>),
+    Unresolved,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -355,8 +355,6 @@ pub struct Type {
     pub kind: TypeKind,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub generic_types: Vec<Type>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub definition: Option<ItemKey>,
     pub symbol_range: Range,
     pub full_range: Range,
 }
@@ -373,7 +371,6 @@ impl Type {
             name: name.into(),
             kind,
             generic_types: Vec::new(),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, start, end),
         }
@@ -391,7 +388,6 @@ impl Type {
             name: "Array".to_owned(),
             kind: TypeKind::Array,
             generic_types: Vec::from([param]),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, fr_start, fr_end),
         }
@@ -409,7 +405,6 @@ impl Type {
             name: "List".to_owned(),
             kind: TypeKind::List,
             generic_types: Vec::from([param]),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, fr_start, fr_end),
         }
@@ -420,7 +415,6 @@ impl Type {
             name: "List".to_owned(),
             kind: TypeKind::List,
             generic_types: Vec::new(),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, start, end),
         }
@@ -439,7 +433,6 @@ impl Type {
             name: "Map".to_owned(),
             kind: TypeKind::Map,
             generic_types: Vec::from([key_param, value_param]),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, fr_start, fr_end),
         }
@@ -450,11 +443,18 @@ impl Type {
             name: "Map".to_owned(),
             kind: TypeKind::Map,
             generic_types: Vec::new(),
-            definition: None,
             symbol_range: Range::new(lookup, start, end),
             full_range: Range::new(lookup, start, end),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TypeDefinition {
+    Unresolved,
+    Resolved{key: ItemKey, item_kind: ItemKind},
+    ForwardDeclared{qualified_name: String, range: Range},
 }
 
 trait BoolExt {

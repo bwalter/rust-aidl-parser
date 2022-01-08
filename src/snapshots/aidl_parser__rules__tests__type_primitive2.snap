@@ -6,7 +6,7 @@ expression: res
 ---
 Type(
   name: "doublegum",
-  kind: custom,
+  kind: unresolved,
   symbol_range: "...",
   full_range: "...",
 )

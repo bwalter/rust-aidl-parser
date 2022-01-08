@@ -370,9 +370,8 @@ TypeCustom: ast::Type = {
         let range = ast::Range::new(&lookup, p1, p2);
         ast::Type {
             name: n.to_owned(),
-            kind: ast::TypeKind::Custom,
+            kind: ast::TypeKind::Unresolved,
             generic_types: vec![],
-            definition: None,
             symbol_range: range.clone(),
             full_range: range,
         }

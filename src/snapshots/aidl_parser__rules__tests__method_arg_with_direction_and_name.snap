@@ -18,7 +18,7 @@ Arg(
   name: Some("roger"),
   type: Type(
     name: "TypeName",
-    kind: custom,
+    kind: unresolved,
     symbol_range: "...",
     full_range: "...",
   ),

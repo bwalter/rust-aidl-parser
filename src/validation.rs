@@ -27,13 +27,13 @@ where
                 ast.imports.iter().map(|i| i.get_qualified_name()).collect();
 
             // Resolve types (check custom types and set definition if found in imports)
-            let resolved = resolve_types(&mut ast, &imports, &mut fr.diagnostics);
+            let resolved = resolve_types(&mut ast, &imports, &keys, &mut fr.diagnostics);
 
             // Check imports (e.g. unresolved, unused, duplicated)
             check_imports(&ast.imports, &resolved, &keys, &mut fr.diagnostics);
 
             // Check types (e.g.: map parameters)
-            check_types(&ast, &keys, &mut fr.diagnostics);
+            check_types(&ast, &mut fr.diagnostics);
 
             if let ast::Item::Interface(ref mut interface) = ast.item {
                 // Set up oneway interface (adjust methods to be oneway)
@@ -41,7 +41,7 @@ where
             }
 
             // Check methods (e.g.: return type of async methods)
-            check_methods(&ast, &keys, &mut fr.diagnostics);
+            check_methods(&ast, &mut fr.diagnostics);
 
             // Sort diagnostics by line
             fr.diagnostics.sort_by_key(|d| d.range.start.line_col.0);
@@ -95,13 +95,15 @@ fn set_up_oneway_interface(interface: &mut ast::Interface, diagnostics: &mut Vec
 fn resolve_types(
     ast: &mut ast::Aidl,
     imports: &HashSet<String>,
+    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> HashSet<String> {
     let mut resolved = HashSet::new();
+
     traverse::walk_types_mut(ast, |type_: &mut ast::Type| {
-        resolve_type(type_, imports, diagnostics);
-        if let Some(definition) = &type_.definition {
-            resolved.insert(definition.clone());
+        resolve_type(type_, imports, defined, diagnostics);
+        if let ast::TypeKind::Resolved(key, _) = &type_.kind {
+            resolved.insert(key.clone());
         }
     });
 
@@ -111,23 +113,28 @@ fn resolve_types(
 fn resolve_type(
     type_: &mut ast::Type,
     imports: &HashSet<String>,
+    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if type_.kind == ast::TypeKind::Custom && type_.definition.is_none() {
-        if let Some(import_path) = imports.iter().find(|import_path| {
-            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
-        }) {
-            type_.definition = Some(import_path.to_owned());
-        } else {
-            diagnostics.push(Diagnostic {
-                kind: DiagnosticKind::Error,
-                range: type_.symbol_range.clone(),
-                message: format!("Unknown type `{}`", type_.name),
-                context_message: Some("unknown type".to_owned()),
-                hint: None,
-                related_infos: Vec::new(),
-            });
-        }
+    match type_.kind {
+        ast::TypeKind::Unresolved => {
+            if let Some(import_path) = imports.iter().find(|import_path| {
+                &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+            }) {
+                let opt_item_kind = defined.get(import_path);
+                type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), opt_item_kind.cloned());
+            } else {
+                diagnostics.push(Diagnostic {
+                    kind: DiagnosticKind::Error,
+                    range: type_.symbol_range.clone(),
+                    message: format!("Unknown type `{}`", type_.name),
+                    context_message: Some("unknown type".to_owned()),
+                    hint: None,
+                    related_infos: Vec::new(),
+                });
+            }
+        },
+        _ => (),
     }
 }
 
@@ -189,23 +196,21 @@ fn check_imports(
 
 fn check_types(
     ast: &ast::Aidl,
-    keys: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     traverse::walk_types(ast, |type_: &ast::Type| {
-        check_type(type_, keys, diagnostics)
+        check_type(type_, diagnostics)
     });
 }
 
 fn check_type(
     type_: &ast::Type,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match &type_.kind {
         ast::TypeKind::Array => {
             let value_type = &type_.generic_types[0];
-            check_array_element(value_type, defined, diagnostics);
+            check_array_element(value_type, diagnostics);
         }
         ast::TypeKind::List => {
             // Handle wrong number of generics
@@ -226,7 +231,7 @@ fn check_type(
             }
 
             let value_type = &type_.generic_types[0];
-            check_list_element(value_type, defined, diagnostics);
+            check_list_element(value_type, diagnostics);
         }
         ast::TypeKind::Map => {
             // Handle wrong number of generics
@@ -250,8 +255,8 @@ fn check_type(
             }
 
             // Handle invalid generic types
-            check_map_key(&type_.generic_types[0], defined, diagnostics);
-            check_map_value(&type_.generic_types[1], defined, diagnostics);
+            check_map_key(&type_.generic_types[0], diagnostics);
+            check_map_value(&type_.generic_types[1], diagnostics);
         }
         _ => {}
     };
@@ -259,7 +264,6 @@ fn check_type(
 
 fn check_methods(
     file: &ast::Aidl,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let mut method_names: HashMap<String, &ast::Method> = HashMap::new();
@@ -269,7 +273,7 @@ fn check_methods(
 
     traverse::walk_methods(file, |method: &ast::Method| {
         // Check individual method (e.g. return value, args, ...)
-        check_method(method, defined, diagnostics);
+        check_method(method, diagnostics);
 
         if let Some(previous) = method_names.get(&method.name) {
             // Found already exists => ERROR
@@ -364,7 +368,6 @@ fn check_methods(
 
 fn check_method(
     method: &ast::Method,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if method.oneway && method.return_type.kind != ast::TypeKind::Void {
@@ -381,13 +384,12 @@ fn check_method(
         });
     }
 
-    check_method_args(method, defined, diagnostics);
+    check_method_args(method, diagnostics);
 }
 
 // Check arg direction (e.g. depending on type or method being oneway)
 fn check_method_args(
     method: &ast::Method,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for arg in &method.args {
@@ -402,7 +404,7 @@ fn check_method_args(
             },
         };
 
-        match get_requirement_for_arg_direction(&arg.arg_type, defined) {
+        match get_requirement_for_arg_direction(&arg.arg_type) {
             RequirementForArgDirection::DirectionRequired(for_elements) => {
                 if arg.direction == ast::Direction::Unspecified {
                     diagnostics.push(Diagnostic {
@@ -490,7 +492,6 @@ enum RequirementForArgDirection {
 
 fn get_requirement_for_arg_direction(
     type_: &ast::Type,
-    defined: &HashMap<String, ast::ItemKind>,
 ) -> RequirementForArgDirection {
     match type_.kind {
         ast::TypeKind::Primitive => {
@@ -507,25 +508,11 @@ fn get_requirement_for_arg_direction(
         ast::TypeKind::IBinder => todo!(),
         ast::TypeKind::FileDescriptor => todo!(),
         ast::TypeKind::ParcelFileDescriptor => RequirementForArgDirection::CanOnlyBeInOrInOut("ParcelFileDescriptor"),  // because it is not default-constructible
-        ast::TypeKind::Custom => {
-            if let Some(ref def) = type_.definition {
-                match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => {
-                        RequirementForArgDirection::DirectionRequired("parcelables")
-                    }
-                    Some(ast::ItemKind::Interface) => {
-                        RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces")
-                    }
-                    Some(ast::ItemKind::Enum) => {
-                        RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums")
-                    }
-                    None => RequirementForArgDirection::NoRequirement,
-                }
-            } else {
-                RequirementForArgDirection::NoRequirement
-            }
-        }
-        ast::TypeKind::Invalid => RequirementForArgDirection::NoRequirement,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => RequirementForArgDirection::DirectionRequired("parcelables"), 
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces"), 
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums"), 
+        ast::TypeKind::Resolved(_, None) => RequirementForArgDirection::NoRequirement,
+        ast::TypeKind::Unresolved => RequirementForArgDirection::NoRequirement,
     }
 }
 
@@ -534,7 +521,6 @@ fn get_requirement_for_arg_direction(
 // TODO: not allowed for ParcelableHolder, allowed for IBinder, ...
 fn check_array_element(
     type_: &ast::Type,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let ok = match type_.kind {
@@ -550,7 +536,6 @@ fn check_array_element(
             });
             return;
         }
-        ast::TypeKind::Invalid => true,   // not applicable
         ast::TypeKind::Primitive => true,
         ast::TypeKind::String => true,
         ast::TypeKind::CharSequence => false,
@@ -561,18 +546,11 @@ fn check_array_element(
         ast::TypeKind::IBinder => true,
         ast::TypeKind::FileDescriptor => true,
         ast::TypeKind::ParcelFileDescriptor => true,
-        ast::TypeKind::Custom => {
-            if let Some(ref def) = type_.definition {
-                match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => true, // OK: it is allowed for Parcelable...
-                    Some(ast::ItemKind::Interface) => false,      // "Binder" type cannot be an array
-                    Some(ast::ItemKind::Enum) => true,       // OK: enum is backed by a primitive
-                    None => true,                            // we don't know
-                }
-            } else {
-                true // we don't know
-            }
-        }
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => false,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => true,  // OK: enum is backed by a primitive
+        ast::TypeKind::Resolved(_, None) => true,  // we don't know
+        ast::TypeKind::Unresolved => true,  // we don't know
     };
 
     if !ok {
@@ -590,12 +568,10 @@ fn check_array_element(
 // List<T> supports parcelable/union, String, IBinder, and ParcelFileDescriptor
 fn check_list_element(
     type_: &ast::Type,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let ok = match type_.kind {
         ast::TypeKind::Array => false,
-        ast::TypeKind::Invalid => true, // we don't know
         ast::TypeKind::List => false,
         ast::TypeKind::Map => false,
         ast::TypeKind::Primitive => false,
@@ -606,18 +582,11 @@ fn check_list_element(
         ast::TypeKind::IBinder => true,
         ast::TypeKind::FileDescriptor => false,
         ast::TypeKind::ParcelFileDescriptor => true,
-        ast::TypeKind::Custom => {
-            if let Some(ref def) = type_.definition {
-                match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => true, // OK
-                    Some(ast::ItemKind::Interface) => false,
-                    Some(ast::ItemKind::Enum) => false, // enum is backed by a primitive
-                    None => true,                  // we don't know
-                }
-            } else {
-                true // we don't know
-            }
-        }
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => false,  // "Binder" type cannot be an array
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => false,  // OK: enum is backed by a primitive
+        ast::TypeKind::Resolved(_, None) => true,  // we don't know
+        ast::TypeKind::Unresolved => true,  // we don't know
     };
 
     if !ok {
@@ -637,7 +606,6 @@ fn check_list_element(
 // The type of key in map must be String
 fn check_map_key(
     type_: &ast::Type,
-    _defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if !matches!(type_.kind, ast::TypeKind::String if type_.name == "String") {
@@ -658,12 +626,10 @@ fn check_map_key(
 // A generic type cannot have any primitive type parameters
 fn check_map_value(
     type_: &ast::Type,
-    defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let ok = match type_.kind {
         ast::TypeKind::Array => true,
-        ast::TypeKind::Invalid => true, // we don't know
         ast::TypeKind::List => true,
         ast::TypeKind::Map => true,
         ast::TypeKind::String => true,
@@ -674,18 +640,11 @@ fn check_map_value(
         ast::TypeKind::IBinder => true,
         ast::TypeKind::FileDescriptor => true,
         ast::TypeKind::ParcelFileDescriptor => true,
-        ast::TypeKind::Custom => {
-            if let Some(ref def) = type_.definition {
-                match defined.get(def) {
-                    Some(ast::ItemKind::Parcelable) => true,
-                    Some(ast::ItemKind::Interface) => true,
-                    Some(ast::ItemKind::Enum) => false, // enum is backed by a primitive
-                    None => true,                  // we don't know
-                }
-            } else {
-                true // we don't know
-            }
-        }
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => true,
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => false,
+        ast::TypeKind::Resolved(_, None) => true,  // we don't know
+        ast::TypeKind::Unresolved => true,  // we don't know
     };
 
     if !ok {
@@ -752,12 +711,6 @@ mod tests {
 
     #[test]
     fn test_check_type() {
-        let keys = HashMap::from([
-            ("test.TestParcelable".into(), ast::ItemKind::Parcelable),
-            ("test.TestInterface".into(), ast::ItemKind::Interface),
-            ("test.TestEnum".into(), ast::ItemKind::Enum),
-        ]);
-
         // Valid arrays
         for t in [
             utils::create_int(0),
@@ -765,21 +718,21 @@ mod tests {
             utils::create_android_builtin(ast::TypeKind::IBinder, 0),
             utils::create_android_builtin(ast::TypeKind::FileDescriptor, 0),
             utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
-            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
+            utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let array = utils::create_array(t, 0);
             let mut diagnostics = Vec::new();
-            check_type(&array, &keys, &mut diagnostics);
+            check_type(&array, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Multi-dimensional array
         let mut diagnostics = Vec::new();
         let array = utils::create_array(utils::create_array(utils::create_int(0), 0), 0);
-        check_type(&array, &HashMap::new(), &mut diagnostics);
+        check_type(&array, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0]
             .message
@@ -790,7 +743,7 @@ mod tests {
             utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestInterface", 0),
+            utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
             utils::create_char_sequence(0),
             utils::create_void(0),
         ]
@@ -798,7 +751,7 @@ mod tests {
         {
             let array = utils::create_array(t, 0);
             let mut diagnostics = Vec::new();
-            check_type(&array, &keys, &mut diagnostics);
+            check_type(&array, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid array"));
         }
@@ -808,20 +761,20 @@ mod tests {
             utils::create_string(0),
             utils::create_android_builtin(ast::TypeKind::IBinder, 0),
             utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
         ]
         .into_iter()
         {
             let list = utils::create_list(Some(t), 0);
             let mut diagnostics = Vec::new();
-            check_type(&list, &keys, &mut diagnostics);
+            check_type(&list, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Non-generic list -> warning
         let mut diagnostics = Vec::new();
         let list = utils::create_list(None, 105);
-        check_type(&list, &HashMap::new(), &mut diagnostics);
+        check_type(&list, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
         assert_eq!(diagnostics[0].range.start.line_col.0, 105);
@@ -837,14 +790,14 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestInterface", 0),
-            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
+            utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let list = utils::create_list(Some(t), 0);
             let mut diagnostics = Vec::new();
-            check_type(&list, &keys, &mut diagnostics);
+            check_type(&list, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid list"));
         }
@@ -859,8 +812,8 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
-            utils::create_custom_type("test.TestInterface", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
+            utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
         ]
         .into_iter()
         {
@@ -872,14 +825,14 @@ mod tests {
                 0,
             );
             let mut diagnostics = Vec::new();
-            check_type(&map, &keys, &mut diagnostics);
+            check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Non-generic map -> warning
         let mut diagnostics = Vec::new();
         let map = utils::create_map(None, 205);
-        check_type(&map, &HashMap::new(), &mut diagnostics);
+        check_type(&map, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
         assert_eq!(diagnostics[0].range.start.line_col.0, 205);
@@ -893,9 +846,9 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
-            utils::create_custom_type("test.TestInterface", 0),
-            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
+            utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
+            utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
         .into_iter()
         {
@@ -907,7 +860,7 @@ mod tests {
                 0,
             );
             let mut diagnostics = Vec::new();
-            check_type(&map, &keys, &mut diagnostics);
+            check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid map"));
         }
@@ -916,7 +869,7 @@ mod tests {
         for vt in [
             utils::create_int(0),
             utils::create_void(0),
-            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
         .into_iter()
         {
@@ -928,7 +881,7 @@ mod tests {
                 0,
             );
             let mut diagnostics = Vec::new();
-            check_type(&map, &keys, &mut diagnostics);
+            check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid map"));
         }
@@ -995,21 +948,21 @@ mod tests {
             oneway_range: utils::create_range(0),
         };
         let mut diagnostics = Vec::new();
-        check_method(&void_method, &HashMap::new(), &mut diagnostics);
+        check_method(&void_method, &mut diagnostics);
         assert_eq!(diagnostics.len(), 0);
 
         // Oneway method returning void -> ok
         let mut oneway_void_method = void_method.clone();
         oneway_void_method.oneway = true;
         let mut diagnostics = Vec::new();
-        check_method(&oneway_void_method, &HashMap::new(), &mut diagnostics);
+        check_method(&oneway_void_method, &mut diagnostics);
         assert_eq!(diagnostics.len(), 0);
 
         // Async method with return value -> error
         let mut oneway_int_method = oneway_void_method.clone();
         oneway_int_method.return_type = utils::create_int(0);
         let mut diagnostics = Vec::new();
-        check_method(&oneway_int_method, &HashMap::new(), &mut diagnostics);
+        check_method(&oneway_int_method, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0]
             .message
@@ -1048,7 +1001,7 @@ mod tests {
         };
 
         let mut diagnostics = Vec::new();
-        check_methods(&ast, &HashMap::new(), &mut diagnostics);
+        check_methods(&ast, &mut diagnostics);
 
         assert_eq!(diagnostics.len(), 3);
 
@@ -1084,12 +1037,6 @@ mod tests {
             oneway_range: utils::create_range(0),
         };
 
-        let keys = HashMap::from([
-            ("test.TestParcelable".into(), ast::ItemKind::Parcelable),
-            ("test.TestInterface".into(), ast::ItemKind::Interface),
-            ("test.TestEnum".into(), ast::ItemKind::Enum),
-        ]);
-
         // Types which are not allowed to be used for args
         for t in [
             utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
@@ -1101,7 +1048,7 @@ mod tests {
                 method.args = Vec::from([
                     utils::create_arg(t, ast::Direction::In(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid argument"));
         }
@@ -1111,8 +1058,8 @@ mod tests {
             utils::create_int(0),
             utils::create_string(0),
             utils::create_char_sequence(0),
-            utils::create_custom_type("test.TestInterface", 0),
-            utils::create_custom_type("test.TestEnum", 0),
+            utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
+            utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
         .into_iter()
         {
@@ -1124,7 +1071,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::Unspecified),
                     utils::create_arg(t.clone(), ast::Direction::In(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), 0);
             }
 
@@ -1136,7 +1083,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
                     utils::create_arg(t, ast::Direction::InOut(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), method.args.len());
                 for d in diagnostics {
                     assert_eq!(d.kind, DiagnosticKind::Error);
@@ -1158,7 +1105,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::In(utils::create_range(0))),
                     utils::create_arg(t.clone(), ast::Direction::InOut(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), 0);
             }
 
@@ -1170,7 +1117,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::Unspecified),
                     utils::create_arg(t, ast::Direction::Out(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), method.args.len());
                 for d in diagnostics {
                     assert_eq!(d.kind, DiagnosticKind::Error);
@@ -1183,7 +1130,7 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
         ]
         .into_iter()
         {
@@ -1196,7 +1143,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
                     utils::create_arg(t.clone(), ast::Direction::InOut(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), 0);
             }
 
@@ -1205,7 +1152,7 @@ mod tests {
                 let mut diagnostics = Vec::new();
                 let mut method = base_method.clone();
                 method.args = Vec::from([utils::create_arg(t, ast::Direction::Unspecified)]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), method.args.len());
                 for d in diagnostics {
                     assert_eq!(d.kind, DiagnosticKind::Error);
@@ -1218,7 +1165,7 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", 0),
+            utils::create_custom_type("test.TestParcelable", ast::ItemKind::Parcelable, 0),
         ]
         .into_iter()
         {
@@ -1231,7 +1178,7 @@ mod tests {
                     t.clone(),
                     ast::Direction::In(utils::create_range(0)),
                 )]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), 0);
             }
 
@@ -1244,7 +1191,7 @@ mod tests {
                     utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
                     utils::create_arg(t, ast::Direction::InOut(utils::create_range(0))),
                 ]);
-                check_method_args(&method, &keys, &mut diagnostics);
+                check_method_args(&method, &mut diagnostics);
                 assert_eq!(diagnostics.len(), method.args.len());
                 for d in diagnostics {
                     assert_eq!(d.kind, DiagnosticKind::Error);
@@ -1318,7 +1265,6 @@ mod tests {
                 name: name.into(),
                 kind,
                 generic_types: Vec::new(),
-                definition: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
             }
@@ -1329,7 +1275,6 @@ mod tests {
                 name: "Array".into(),
                 kind: ast::TypeKind::Array,
                 generic_types: Vec::from([generic_type]),
-                definition: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
             }
@@ -1340,7 +1285,6 @@ mod tests {
                 name: "List".into(),
                 kind: ast::TypeKind::List,
                 generic_types: generic_type.map(|t| [t].into()).unwrap_or_default(),
-                definition: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
             }
@@ -1356,18 +1300,16 @@ mod tests {
                 generic_types: key_value_types
                     .map(|(k, v)| Vec::from([k, v]))
                     .unwrap_or_default(),
-                definition: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
             }
         }
 
-        pub fn create_custom_type(def: &str, line: usize) -> ast::Type {
+        pub fn create_custom_type(path: &str, item_kind: ast::ItemKind, line: usize) -> ast::Type {
             ast::Type {
                 name: "TestCustomType".into(),
-                kind: ast::TypeKind::Custom,
+                kind: ast::TypeKind::Resolved(path.into(), Some(item_kind)),
                 generic_types: Vec::new(),
-                definition: Some(def.into()),
                 symbol_range: create_range(line),
                 full_range: create_range(line),
             }

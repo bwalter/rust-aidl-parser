@@ -1,12 +1,12 @@
 ---
 source: src/rules.rs
-assertion_line: 570
+assertion_line: 597
 expression: res
 
 ---
 Type(
   name: "TypeName",
-  kind: custom,
+  kind: unresolved,
   symbol_range: "...",
   full_range: "...",
 )

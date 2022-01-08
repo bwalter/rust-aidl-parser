@@ -1,6 +1,6 @@
 ---
 source: src/rules.rs
-assertion_line: 602
+assertion_line: 629
 expression: res
 
 ---
@@ -10,7 +10,7 @@ Type(
   generic_types: [
     Type(
       name: "MyObject",
-      kind: custom,
+      kind: unresolved,
       symbol_range: "...",
       full_range: "...",
     ),

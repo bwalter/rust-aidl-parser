@@ -46,11 +46,8 @@ impl<'a> Symbol<'a> {
             Symbol::Const(c, i) => Some(format!("{}::{}", i.name, c.name)),
             Symbol::Field(m, p) => Some(format!("{}::{}", p.name, m.name)),
             Symbol::EnumElement(el, e) => Some(format!("{}::{}", e.name, el.name)),
-            Symbol::Type(t) => t
-                .definition
-                .as_ref()
-                .cloned()
-                .or_else(|| Some(t.name.clone())),
+            Symbol::Type(ast::Type {kind: ast::TypeKind::Resolved(qualified_name, _), ..}) => Some(qualified_name.clone()),
+            Symbol::Type(_) => None,
         }
     }
 

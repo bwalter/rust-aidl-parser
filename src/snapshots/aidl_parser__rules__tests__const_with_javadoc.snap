@@ -8,7 +8,7 @@ Const(
   name: "CONST_NAME",
   type: Type(
     name: "TypeName",
-    kind: custom,
+    kind: unresolved,
     symbol_range: "...",
     full_range: "...",
   ),

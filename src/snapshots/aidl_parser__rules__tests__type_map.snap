@@ -1,6 +1,6 @@
 ---
 source: src/rules.rs
-assertion_line: 628
+assertion_line: 655
 expression: res
 
 ---
@@ -10,7 +10,7 @@ Type(
   generic_types: [
     Type(
       name: "Key",
-      kind: custom,
+      kind: unresolved,
       symbol_range: "...",
       full_range: "...",
     ),
@@ -20,7 +20,7 @@ Type(
       generic_types: [
         Type(
           name: "V",
-          kind: custom,
+          kind: unresolved,
           symbol_range: "...",
           full_range: "...",
         ),
