@@ -75,19 +75,19 @@ Link to AOSP AIDL implementation:
 
 ## TODO
 - Document how to display diagnostics (e.g. with CodeSpan)
-- Annotation attached to primitive type
 - union (Android 12)
 - nested types (Android T)
 - Allow annotations for list/map parameters?
-- Android types: ParcelableHolder, IBinder, FileDescriptor, ParcelFileDescriptor, 
+- User-defined generic types
+- Fixed size arrays
 - Ignore Java-like imports: "android.os.IInterface", "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",
       "android.content.Context", "java.lang.String", "java.lang.CharSequence" (but add a warning)
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - Format?
 - validate:
   - file name matching item name
-  - ParcelableHolder cannot (currently) be given as an argument?
-  - ParcelableFileDescriptor cannot be out (because it is not default-constructible)
+  - annotations
+  - annotation cannot be attached to primitive type
 
 ## License
 

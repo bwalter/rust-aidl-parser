@@ -430,6 +430,32 @@ fn check_method_args(
                     });
                 }
             }
+            RequirementForArgDirection::CanOnlyBeInOrInOut(for_elements) => {
+                if !matches!(arg.direction, ast::Direction::In(_) | ast::Direction::InOut(_)) {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        message: format!("Invalid direction for `{}`", arg.arg_type.name),
+                        context_message: Some("invalid direction".to_owned()),
+                        range: range.clone(),
+                        hint: Some(if matches!(arg.direction, ast::Direction::Out(_)) {
+                            format!("{} cannot be out", for_elements,)
+                        } else {
+                            format!("{} must be specified", for_elements,)
+                        }),
+                        related_infos: Vec::new(),
+                    });
+                }
+            }
+            RequirementForArgDirection::CannotBeAnArg(for_elements) => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        message: format!("Invalid argument `{}`", arg.arg_type.name,),
+                        context_message: Some("invalid argument".to_owned()),
+                        range: range.clone(),
+                        hint: Some(format!("{} cannot be an argument", for_elements)),
+                        related_infos: Vec::new(),
+                    });
+            },
             RequirementForArgDirection::NoRequirement => (),
         }
 
@@ -457,6 +483,8 @@ fn check_method_args(
 enum RequirementForArgDirection {
     DirectionRequired(&'static str),
     CanOnlyBeInOrUnspecified(&'static str),
+    CanOnlyBeInOrInOut(&'static str),
+    CannotBeAnArg(&'static str),
     NoRequirement,
 }
 
@@ -475,6 +503,10 @@ fn get_requirement_for_arg_direction(
         }
         ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified("strings"),
         ast::TypeKind::CharSequence => RequirementForArgDirection::CanOnlyBeInOrUnspecified("CharSequence"),
+        ast::TypeKind::ParcelableHolder => RequirementForArgDirection::CannotBeAnArg("ParcelableHolder"),
+        ast::TypeKind::IBinder => todo!(),
+        ast::TypeKind::FileDescriptor => todo!(),
+        ast::TypeKind::ParcelFileDescriptor => RequirementForArgDirection::CanOnlyBeInOrInOut("ParcelFileDescriptor"),  // because it is not default-constructible
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
@@ -519,12 +551,16 @@ fn check_array_element(
             return;
         }
         ast::TypeKind::Invalid => true,   // not applicable
-        ast::TypeKind::Primitive => true, // OK
-        ast::TypeKind::String => true,  // OK
+        ast::TypeKind::Primitive => true,
+        ast::TypeKind::String => true,
         ast::TypeKind::CharSequence => false,
         ast::TypeKind::List => false,
         ast::TypeKind::Map => false,
         ast::TypeKind::Void => false,
+        ast::TypeKind::ParcelableHolder => false,
+        ast::TypeKind::IBinder => true,
+        ast::TypeKind::FileDescriptor => true,
+        ast::TypeKind::ParcelFileDescriptor => true,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
@@ -552,7 +588,6 @@ fn check_array_element(
 }
 
 // List<T> supports parcelable/union, String, IBinder, and ParcelFileDescriptor
-// TODO: IBinder + ParcelFileDescriptor
 fn check_list_element(
     type_: &ast::Type,
     defined: &HashMap<String, ast::ItemKind>,
@@ -567,6 +602,10 @@ fn check_list_element(
         ast::TypeKind::String => true,
         ast::TypeKind::CharSequence => false,
         ast::TypeKind::Void => false,
+        ast::TypeKind::ParcelableHolder => false,
+        ast::TypeKind::IBinder => true,
+        ast::TypeKind::FileDescriptor => false,
+        ast::TypeKind::ParcelFileDescriptor => true,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
@@ -623,14 +662,18 @@ fn check_map_value(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let ok = match type_.kind {
-        ast::TypeKind::Array => true,   // OK
+        ast::TypeKind::Array => true,
         ast::TypeKind::Invalid => true, // we don't know
-        ast::TypeKind::List => true,    // OK
-        ast::TypeKind::Map => true,     // OK
-        ast::TypeKind::String => true,  // OK
-        ast::TypeKind::CharSequence => true,  // OK
+        ast::TypeKind::List => true,
+        ast::TypeKind::Map => true,
+        ast::TypeKind::String => true,
+        ast::TypeKind::CharSequence => true,
         ast::TypeKind::Primitive => false,
         ast::TypeKind::Void => false,
+        ast::TypeKind::ParcelableHolder => true,
+        ast::TypeKind::IBinder => true,
+        ast::TypeKind::FileDescriptor => true,
+        ast::TypeKind::ParcelFileDescriptor => true,
         ast::TypeKind::Custom => {
             if let Some(ref def) = type_.definition {
                 match defined.get(def) {
@@ -719,6 +762,9 @@ mod tests {
         for t in [
             utils::create_int(0),
             utils::create_string(0),
+            utils::create_android_builtin(ast::TypeKind::IBinder, 0),
+            utils::create_android_builtin(ast::TypeKind::FileDescriptor, 0),
+            utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
             utils::create_custom_type("test.TestParcelable", 0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
@@ -741,6 +787,7 @@ mod tests {
 
         // Invalid arrays
         for t in [
+            utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
             utils::create_custom_type("test.TestInterface", 0),
@@ -759,6 +806,8 @@ mod tests {
         // Valid list
         for t in [
             utils::create_string(0),
+            utils::create_android_builtin(ast::TypeKind::IBinder, 0),
+            utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
             utils::create_custom_type("test.TestParcelable", 0),
         ]
         .into_iter()
@@ -783,6 +832,8 @@ mod tests {
         for t in [
             utils::create_void(0),
             utils::create_char_sequence(0),
+            utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
+            utils::create_android_builtin(ast::TypeKind::FileDescriptor, 0),
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
@@ -801,6 +852,10 @@ mod tests {
         // Valid map
         for vt in [
             utils::create_string(0),
+            utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
+            utils::create_android_builtin(ast::TypeKind::IBinder, 0),
+            utils::create_android_builtin(ast::TypeKind::FileDescriptor, 0),
+            utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
@@ -859,6 +914,7 @@ mod tests {
 
         // Invalid map values
         for vt in [
+            utils::create_int(0),
             utils::create_void(0),
             utils::create_custom_type("test.TestEnum", 0),
         ]
@@ -1034,6 +1090,22 @@ mod tests {
             ("test.TestEnum".into(), ast::ItemKind::Enum),
         ]);
 
+        // Types which are not allowed to be used for args
+        for t in [
+            utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
+        ]
+        .into_iter()
+        {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t, ast::Direction::In(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics[0].message.contains("Invalid argument"));
+        }
+
         // Primitives, String and Interfaces can only be in or unspecified
         for t in [
             utils::create_int(0),
@@ -1063,6 +1135,40 @@ mod tests {
                 method.args = Vec::from([
                     utils::create_arg(t.clone(), ast::Direction::Out(utils::create_range(0))),
                     utils::create_arg(t, ast::Direction::InOut(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), method.args.len());
+                for d in diagnostics {
+                    assert_eq!(d.kind, DiagnosticKind::Error);
+                }
+            }
+        }
+
+        // ParcelFileDescriptor cannot be out
+        for t in [
+            utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
+        ]
+        .into_iter()
+        {
+            // In or InOut => OK
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::In(utils::create_range(0))),
+                    utils::create_arg(t.clone(), ast::Direction::InOut(utils::create_range(0))),
+                ]);
+                check_method_args(&method, &keys, &mut diagnostics);
+                assert_eq!(diagnostics.len(), 0);
+            }
+
+            // Unspecified or Out => ERROR
+            {
+                let mut diagnostics = Vec::new();
+                let mut method = base_method.clone();
+                method.args = Vec::from([
+                    utils::create_arg(t.clone(), ast::Direction::Unspecified),
+                    utils::create_arg(t, ast::Direction::Out(utils::create_range(0))),
                 ]);
                 check_method_args(&method, &keys, &mut diagnostics);
                 assert_eq!(diagnostics.len(), method.args.len());
@@ -1189,6 +1295,18 @@ mod tests {
 
         pub fn create_char_sequence(line: usize) -> ast::Type {
             create_simple_type("CharSequence", ast::TypeKind::CharSequence, line)            
+        }
+
+        pub fn create_android_builtin(kind: ast::TypeKind, line: usize) -> ast::Type {
+            let name = match kind {
+                ast::TypeKind::ParcelableHolder => "ParcelableHolder",
+                ast::TypeKind::IBinder => "IBinder",
+                ast::TypeKind::FileDescriptor => "FileDescriptor",
+                ast::TypeKind::ParcelFileDescriptor => "ParcelFileDescriptor",
+                _ => unreachable!(),
+            };
+
+            create_simple_type(name, kind, line)
         }
 
         fn create_simple_type(

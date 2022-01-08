@@ -1,0 +1,12 @@
+---
+source: src/rules.rs
+assertion_line: 588
+expression: res
+
+---
+Type(
+  name: "IBinder",
+  kind: i_binder,
+  symbol_range: "...",
+  full_range: "...",
+)

@@ -304,6 +304,7 @@ pub(crate) Type: ast::Type = {
     TypePrimitive,
     TypeString,
     TypeCharSequence,
+    TypeAndroidBuiltin,
     TypeArray,
     TypeList,
     TypeMap,
@@ -328,6 +329,13 @@ TypeString: ast::Type = {
 TypeCharSequence: ast::Type = {
     <p1:@L> <n:CHAR_SEQUENCE> <p2:@R> =>
         ast::Type::simple_type(n, ast::TypeKind::CharSequence, lookup, p1, p2)
+}
+
+TypeAndroidBuiltin: ast::Type = {
+    <p1:@L> <n:PARCELABLE_HOLDER> <p2:@R> => ast::Type::simple_type(n, ast::TypeKind::ParcelableHolder, lookup, p1, p2),
+    <p1:@L> <n:IBINDER> <p2:@R> => ast::Type::simple_type(n, ast::TypeKind::IBinder, lookup, p1, p2),
+    <p1:@L> <n:FILE_DESCRIPTOR> <p2:@R> => ast::Type::simple_type(n, ast::TypeKind::FileDescriptor, lookup, p1, p2),
+    <p1:@L> <n:PARCEL_FILE_DESCRIPTOR> <p2:@R> => ast::Type::simple_type(n, ast::TypeKind::ParcelFileDescriptor, lookup, p1, p2),
 }
 
 TypeArray: ast::Type = {
@@ -432,6 +440,11 @@ match {
     "CharSequence" => CHAR_SEQUENCE,
     "List" => LIST,
     "Map" => MAP,
+    
+    "ParcelableHolder" => PARCELABLE_HOLDER,
+    "IBinder" => IBINDER,
+    "FileDescriptor" => FILE_DESCRIPTOR,
+    "ParcelFileDescriptor" => PARCEL_FILE_DESCRIPTOR,
     
     r#""[^"\n\r]*""# => QUOTED_STRING,
     r#"(true|false)"# => BOOLEAN,
