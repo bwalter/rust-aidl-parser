@@ -22,15 +22,22 @@ where
                 None => return (id, ParseFileResult { ast: None, ..fr }),
             };
 
-            // Map qualified name -> import
+            // Imports as qualified names
             let imports: HashSet<String> =
                 ast.imports.iter().map(|i| i.get_qualified_name()).collect();
 
-            // Resolve types (check custom types and set definition if found in imports)
-            let resolved = resolve_types(&mut ast, &imports, &keys, &mut fr.diagnostics);
+            // Declared parcelables as qualified names
+            let declared_parcelables: HashSet<String> =
+                ast.imports.iter().map(|i| i.get_qualified_name()).collect();
 
+            // Resolve types (check custom types and set definition if found in imports)
+            let resolved = resolve_types(&mut ast, &imports, &declared_parcelables, &keys, &mut fr.diagnostics);
+            
             // Check imports (e.g. unresolved, unused, duplicated)
-            check_imports(&ast.imports, &resolved, &keys, &mut fr.diagnostics);
+            let import_map = check_imports(&ast.imports, &resolved, &keys, &mut fr.diagnostics);
+            
+            // Check declared parcelables
+            check_declared_parcelables(&ast.declared_parcelables, &import_map, &resolved, &mut fr.diagnostics);
 
             // Check types (e.g.: map parameters)
             check_types(&ast, &mut fr.diagnostics);
@@ -95,13 +102,14 @@ fn set_up_oneway_interface(interface: &mut ast::Interface, diagnostics: &mut Vec
 fn resolve_types(
     ast: &mut ast::Aidl,
     imports: &HashSet<String>,
+    declared_parcelables: &HashSet<String>,
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> HashSet<String> {
     let mut resolved = HashSet::new();
 
     traverse::walk_types_mut(ast, |type_: &mut ast::Type| {
-        resolve_type(type_, imports, defined, diagnostics);
+        resolve_type(type_, imports, declared_parcelables, defined, diagnostics);
         if let ast::TypeKind::Resolved(key, _) = &type_.kind {
             resolved.insert(key.clone());
         }
@@ -113,6 +121,7 @@ fn resolve_types(
 fn resolve_type(
     type_: &mut ast::Type,
     imports: &HashSet<String>,
+    declared_parcelables: &HashSet<String>,
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -121,9 +130,16 @@ fn resolve_type(
             if let Some(import_path) = imports.iter().find(|import_path| {
                 &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
             }) {
+                // Type has been imported
                 let opt_item_kind = defined.get(import_path);
                 type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), opt_item_kind.cloned());
+            } else if let Some(import_path) = declared_parcelables.iter().find(|import_path| {
+                &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+            }) {
+                // Type is a forward-declared parcelable
+                type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), None);
             } else {
+                // Unresolved type
                 diagnostics.push(Diagnostic {
                     kind: DiagnosticKind::Error,
                     range: type_.symbol_range.clone(),
@@ -138,14 +154,14 @@ fn resolve_type(
     }
 }
 
-fn check_imports(
-    imports: &[ast::Import],
-    resolved: &HashSet<String>,
-    defined: &HashMap<String, ast::ItemKind>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    // - generate diagnostics for duplicated, unsued and unresolved imports
-    // - create array of Import -> map of "qualified name" -> Import
+fn check_imports<'a, 'b>(
+    imports: &'a [ast::Import],
+    resolved: &'a HashSet<String>,
+    defined: &'a HashMap<String, ast::ItemKind>,
+    diagnostics: &'b mut Vec<Diagnostic>,
+) -> HashMap<String, &'a ast::Import> {
+    // - detect duplicated imports
+    // - create map of "qualified name" -> Import
     let imports: HashMap<String, &ast::Import> =
         imports.iter().fold(HashMap::new(), |mut map, import| {
             match map.entry(import.get_qualified_name()) {
@@ -169,8 +185,9 @@ fn check_imports(
             map
         });
 
-    for (qualified_import, import) in imports.into_iter() {
-        if !defined.contains_key(&qualified_import) {
+    // - generate diagnostics for unused and unresolved imports
+    for (qualified_import, import) in imports.iter() {
+        if !defined.contains_key(qualified_import) {
             // No item can be found with the given import path
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Error,
@@ -180,7 +197,7 @@ fn check_imports(
                 hint: None,
                 related_infos: Vec::new(),
             });
-        } else if !resolved.contains(&qualified_import) {
+        } else if !resolved.contains(qualified_import) {
             // No type resolved for this import
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
@@ -188,6 +205,82 @@ fn check_imports(
                 message: format!("Unused import `{}`", import.name),
                 context_message: Some("unused import".to_owned()),
                 hint: None,
+                related_infos: Vec::new(),
+            });
+        }
+    }
+    
+    imports
+}
+
+fn check_declared_parcelables(
+    declared_parcelables: &[ast::Import],
+    imports: &HashMap<String, &ast::Import>,
+    resolved: &HashSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // - detect duplicated parcelables (or name which was already imported)
+    // - create map "qualified name" -> Import
+    let declared_parcelables: HashMap<String, &ast::Import> =
+        declared_parcelables.iter().fold(HashMap::new(), |mut map, import| {
+            let qualified_name = import.get_qualified_name();
+            
+            if let Some(conflicting_import) = imports.get(&qualified_name) {
+                diagnostics.push(Diagnostic {
+                    kind: DiagnosticKind::Error,
+                    range: import.symbol_range.clone(),
+                    message: format!("Declared parcelable conflicts with import `{}`", qualified_name),
+                    context_message: Some("conflicting declaration".to_owned()),
+                    hint: None,
+                    related_infos: Vec::from([diagnostic::RelatedInfo {
+                        message: "location of conflicting import".to_owned(),
+                        range: conflicting_import.symbol_range.clone(),
+                    }]),
+                });
+
+                return map
+            }
+
+            match map.entry(qualified_name.clone()) {
+                hash_map::Entry::Occupied(previous) => {
+                    diagnostics.push(Diagnostic {
+                        kind: DiagnosticKind::Error,
+                        range: import.symbol_range.clone(),
+                        message: format!("Multiple parcelable declarations `{}`", qualified_name),
+                        context_message: Some("duplicated declaration".to_owned()),
+                        hint: None,
+                        related_infos: Vec::from([diagnostic::RelatedInfo {
+                            message: "previous location".to_owned(),
+                            range: previous.get().symbol_range.clone(),
+                        }]),
+                    });
+                }
+                hash_map::Entry::Vacant(v) => {
+                    v.insert(import);
+                }
+            }
+            map
+        });
+
+    // - generate diagnostics for unrecommended usage and for unused declared parcelables
+    for (qualified_import, import) in declared_parcelables.into_iter() {
+        if !resolved.contains(&qualified_import) {
+            // No type resolved for this import
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Warning,
+                range: import.symbol_range.clone(),
+                message: format!("Unused declared parcelable `{}`", import.name),
+                context_message: Some("unused declared parcelable".to_owned()),
+                hint: None,
+                related_infos: Vec::new(),
+            });
+        } else { 
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Warning,
+                range: import.symbol_range.clone(),
+                message: format!("Usage of declared parcelable `{}`", import.name),
+                context_message: Some(String::from("declared parcelable")),
+                hint: Some(String::from("It is recommended to defined parcelables in AIDL to garantee compatilibity between languages")),
                 related_infos: Vec::new(),
             });
         }
@@ -696,17 +789,72 @@ mod tests {
         let d = &diagnostics[0];
         assert_eq!(d.kind, DiagnosticKind::Error);
         assert!(d.message.contains("Duplicated import"));
-        assert!(d.range.start.line_col.0 == 2);
+        assert_eq!(d.range.start.line_col.0, 2);
 
         let d = &diagnostics[1];
         assert_eq!(d.kind, DiagnosticKind::Warning);
         assert!(d.message.contains("Unused import `UnusedEnum`"));
-        assert!(d.range.start.line_col.0 == 4);
+        assert_eq!(d.range.start.line_col.0, 4);
 
         let d = &diagnostics[2];
         assert_eq!(d.kind, DiagnosticKind::Error);
         assert!(d.message.contains("Unresolved import `NonExisting`"));
-        assert!(d.range.start.line_col.0 == 5);
+        assert_eq!(d.range.start.line_col.0, 5);
+    }
+
+    #[test]
+    fn test_check_declared_parcelables() {
+        let declared_parcelables = Vec::from([
+            utils::create_import("DeclaredParcelable1", 2),
+            utils::create_import("DeclaredParcelable1", 3),
+            utils::create_import("DeclaredParcelable2", 4),
+            utils::create_import("UnusedParcelable", 5),
+            utils::create_import("AlreadyImported", 6),
+        ]);
+
+        let import = ast::Import {
+            path: "test.path".into(),
+            name: "AlreadyImported".into(),
+            symbol_range: utils::create_range(1),
+            full_range: utils::create_range(1),
+        };
+        let import_map = HashMap::from([
+            (import.get_qualified_name(), &import),
+        ]);
+        let resolved = HashSet::from([
+            "test.path.DeclaredParcelable1".into(),
+            "test.path.DeclaredParcelable2".into(),
+        ]);
+        let mut diagnostics = Vec::new();
+
+        check_declared_parcelables(&declared_parcelables, &import_map, &resolved, &mut diagnostics);
+
+        diagnostics.sort_by_key(|d| d.range.start.line_col.0);
+        
+        assert_eq!(diagnostics.len(), 5);
+
+        let d = &diagnostics[0];
+        assert_eq!(d.kind, DiagnosticKind::Warning);
+        assert_eq!(d.range.start.line_col.0, 2);
+
+        let d = &diagnostics[1];
+        assert_eq!(d.kind, DiagnosticKind::Error);
+        assert!(d.message.contains("Multiple parcelable declarations"));
+        assert_eq!(d.range.start.line_col.0, 3);
+
+        let d = &diagnostics[2];
+        assert_eq!(d.kind, DiagnosticKind::Warning);
+        assert_eq!(d.range.start.line_col.0, 4);
+
+        let d = &diagnostics[3];
+        assert_eq!(d.kind, DiagnosticKind::Warning);
+        assert!(d.message.contains("Unused declared parcelable `UnusedParcelable`"));
+        assert_eq!(d.range.start.line_col.0, 5);
+
+        let d = &diagnostics[4];
+        assert_eq!(d.kind, DiagnosticKind::Error);
+        assert!(d.message.contains("conflicts"));
+        assert_eq!(d.range.start.line_col.0, 6);
     }
 
     #[test]
@@ -986,6 +1134,7 @@ mod tests {
                 full_range: utils::create_range(0),
             },
             imports: Vec::new(),
+            declared_parcelables: Vec::new(),
             item: ast::Item::Interface(ast::Interface {
                 oneway: false,
                 name: "testMethod".into(),

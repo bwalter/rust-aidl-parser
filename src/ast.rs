@@ -7,6 +7,7 @@ use serde_derive::{Deserialize, Serialize};
 pub struct Aidl {
     pub package: Package,
     pub imports: Vec<Import>,
+    pub declared_parcelables: Vec<Import>,
     pub item: Item,
 }
 

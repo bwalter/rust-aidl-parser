@@ -1,6 +1,12 @@
 ---
 source: src/rules.rs
+assertion_line: 128
 expression: res
 
 ---
-()
+Import(
+  path: "",
+  name: "X",
+  symbol_range: "...",
+  full_range: "...",
+)

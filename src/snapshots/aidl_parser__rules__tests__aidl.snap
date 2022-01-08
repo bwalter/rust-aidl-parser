@@ -18,6 +18,7 @@ Some(Aidl(
       full_range: "...",
     ),
   ],
+  declared_parcelables: [],
   item: interface(Interface(
     oneway: false,
     name: "MyInterface",

@@ -4,7 +4,6 @@ lalrpop_mod!(#[allow(clippy::all, dead_code, unused_imports)] pub aidl);
 
 #[cfg(test)]
 mod tests {
-    use crate::diagnostic::DiagnosticKind;
     use crate::rules;
     use anyhow::Result;
 
@@ -142,12 +141,6 @@ mod tests {
             rules::aidl::DeclaredParcelableParser::new(),
             &mut diagnostics
         );
-
-        // Warning generated because it is recommended to define parcelables in AIDL
-        assert_eq!(diagnostics.len(), 3);
-        assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
-        assert_eq!(diagnostics[1].kind, DiagnosticKind::Warning);
-        assert_eq!(diagnostics[2].kind, DiagnosticKind::Warning);
 
         Ok(())
     }

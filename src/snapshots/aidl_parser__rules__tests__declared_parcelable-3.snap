@@ -1,6 +1,12 @@
 ---
 source: src/rules.rs
+assertion_line: 140
 expression: res
 
 ---
-()
+Import(
+  path: "any.pkg",
+  name: "Y",
+  symbol_range: "...",
+  full_range: "...",
+)
