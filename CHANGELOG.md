@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.9.0] - 2022-01-10
+
 - Full support for declared parcelables
 - Improve representation of resolved types in the AST
 - Add support for builtin Android types (ParcelableHolder, IBinder, ...)
