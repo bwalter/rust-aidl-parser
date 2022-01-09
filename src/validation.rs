@@ -27,8 +27,11 @@ where
                 ast.imports.iter().map(|i| i.get_qualified_name()).collect();
 
             // Declared parcelables as qualified names
-            let declared_parcelables: HashSet<String> =
-                ast.imports.iter().map(|i| i.get_qualified_name()).collect();
+            let declared_parcelables: HashSet<String> = ast
+                .declared_parcelables
+                .iter()
+                .map(|i| i.get_qualified_name())
+                .collect();
 
             // Resolve types (check custom types and set definition if found in imports)
             let resolved = resolve_types(

@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Fix resolving of declared parcelables
+
 ## [0.9.0] - 2022-01-10
 
 - Full support for declared parcelables
