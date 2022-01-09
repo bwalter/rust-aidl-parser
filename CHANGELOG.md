@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.9.1] - 2022-01-10
+
 - Fix resolving of declared parcelables
 
 ## [0.9.0] - 2022-01-10
