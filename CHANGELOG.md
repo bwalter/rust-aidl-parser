@@ -3,6 +3,10 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Full support for declared parcelables
+- Improve representation of resolved types in the AST
+- Add support for builtin Android types (ParcelableHolder, IBinder, ...)
+- Rename Member into Field
 - Add Symbol::get_qualified_name()
 - Improve range info for generic types
 - Make a few errors more descriptive
@@ -27,6 +31,7 @@
 ## [0.7.0] - 2022-01-03
 
 - Added support for oneway interfaces
+- Initial support for declared parcelables
 
 ## [0.6.2] - 2022-01-02
 
