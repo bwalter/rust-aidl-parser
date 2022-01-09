@@ -232,13 +232,16 @@ fn check_declared_parcelables(
     let declared_parcelables: HashMap<String, &ast::Import> =
         declared_parcelables
             .iter()
-            .fold(HashMap::new(), |mut map, import| {
-                let qualified_name = import.get_qualified_name();
+            .fold(HashMap::new(), |mut map, declared_parcelable| {
+                let qualified_name = declared_parcelable.get_qualified_name();
 
-                if let Some(conflicting_import) = imports.get(&qualified_name) {
+                if let Some((_, conflicting_import)) = imports
+                    .iter()
+                    .find(|(_, import)| import.name == declared_parcelable.name)
+                {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
-                        range: import.symbol_range.clone(),
+                        range: declared_parcelable.symbol_range.clone(),
                         message: format!(
                             "Declared parcelable conflicts with import `{}`",
                             qualified_name
@@ -258,7 +261,7 @@ fn check_declared_parcelables(
                     hash_map::Entry::Occupied(previous) => {
                         diagnostics.push(Diagnostic {
                             kind: DiagnosticKind::Error,
-                            range: import.symbol_range.clone(),
+                            range: declared_parcelable.symbol_range.clone(),
                             message: format!(
                                 "Multiple parcelable declarations `{}`",
                                 qualified_name
@@ -272,20 +275,20 @@ fn check_declared_parcelables(
                         });
                     }
                     hash_map::Entry::Vacant(v) => {
-                        v.insert(import);
+                        v.insert(declared_parcelable);
                     }
                 }
                 map
             });
 
     // - generate diagnostics for unrecommended usage and for unused declared parcelables
-    for (qualified_import, import) in declared_parcelables.into_iter() {
+    for (qualified_import, declared_parcelable) in declared_parcelables.into_iter() {
         if !resolved.contains(&qualified_import) {
             // No type resolved for this import
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
-                range: import.symbol_range.clone(),
-                message: format!("Unused declared parcelable `{}`", import.name),
+                range: declared_parcelable.symbol_range.clone(),
+                message: format!("Unused declared parcelable `{}`", declared_parcelable.name),
                 context_message: Some("unused declared parcelable".to_owned()),
                 hint: None,
                 related_infos: Vec::new(),
@@ -293,8 +296,8 @@ fn check_declared_parcelables(
         } else {
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
-                range: import.symbol_range.clone(),
-                message: format!("Usage of declared parcelable `{}`", import.name),
+                range: declared_parcelable.symbol_range.clone(),
+                message: format!("Usage of declared parcelable `{}`", declared_parcelable.name),
                 context_message: Some(String::from("declared parcelable")),
                 hint: Some(String::from("It is recommended to defined parcelables in AIDL to garantee compatilibity between languages")),
                 related_infos: Vec::new(),
@@ -816,7 +819,7 @@ mod tests {
         ]);
 
         let import = ast::Import {
-            path: "test.path".into(),
+            path: "test.other.path".into(),
             name: "AlreadyImported".into(),
             symbol_range: utils::create_range(1),
             full_range: utils::create_range(1),
