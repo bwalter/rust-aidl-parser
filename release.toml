@@ -1,4 +1,4 @@
-pre-release-commit-message = "Release: {{version}}"
+pre-release-commit-message = "Release"
 tag-message = "{{tag_name}}"
 tag-name = "{{prefix}}v{{version}}"
 consolidate-commits = true

@@ -345,7 +345,7 @@ pub enum TypeKind {
     ParcelableHolder,
     IBinder,
     FileDescriptor,
-    ParcelFileDescriptor, 
+    ParcelFileDescriptor,
     Resolved(String, Option<ItemKind>),
     Unresolved,
 }
@@ -454,8 +454,14 @@ impl Type {
 #[serde(rename_all = "snake_case")]
 pub enum TypeDefinition {
     Unresolved,
-    Resolved{key: ItemKey, item_kind: ItemKind},
-    ForwardDeclared{qualified_name: String, range: Range},
+    Resolved {
+        key: ItemKey,
+        item_kind: ItemKind,
+    },
+    ForwardDeclared {
+        qualified_name: String,
+        range: Range,
+    },
 }
 
 trait BoolExt {

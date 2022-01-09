@@ -575,8 +575,13 @@ mod tests {
 
     #[test]
     fn test_type_android_builtin() -> Result<()> {
-        let inputs = ["ParcelableHolder", "IBinder", "FileDescriptor", "ParcelFileDescriptor"];
-        
+        let inputs = [
+            "ParcelableHolder",
+            "IBinder",
+            "FileDescriptor",
+            "ParcelFileDescriptor",
+        ];
+
         for input in inputs.into_iter() {
             assert_parser!(input, rules::aidl::TypeParser::new());
         }

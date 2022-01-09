@@ -31,13 +31,24 @@ where
                 ast.imports.iter().map(|i| i.get_qualified_name()).collect();
 
             // Resolve types (check custom types and set definition if found in imports)
-            let resolved = resolve_types(&mut ast, &imports, &declared_parcelables, &keys, &mut fr.diagnostics);
-            
+            let resolved = resolve_types(
+                &mut ast,
+                &imports,
+                &declared_parcelables,
+                &keys,
+                &mut fr.diagnostics,
+            );
+
             // Check imports (e.g. unresolved, unused, duplicated)
             let import_map = check_imports(&ast.imports, &resolved, &keys, &mut fr.diagnostics);
-            
+
             // Check declared parcelables
-            check_declared_parcelables(&ast.declared_parcelables, &import_map, &resolved, &mut fr.diagnostics);
+            check_declared_parcelables(
+                &ast.declared_parcelables,
+                &import_map,
+                &resolved,
+                &mut fr.diagnostics,
+            );
 
             // Check types (e.g.: map parameters)
             check_types(&ast, &mut fr.diagnostics);
@@ -125,32 +136,29 @@ fn resolve_type(
     defined: &HashMap<String, ast::ItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match type_.kind {
-        ast::TypeKind::Unresolved => {
-            if let Some(import_path) = imports.iter().find(|import_path| {
-                &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
-            }) {
-                // Type has been imported
-                let opt_item_kind = defined.get(import_path);
-                type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), opt_item_kind.cloned());
-            } else if let Some(import_path) = declared_parcelables.iter().find(|import_path| {
-                &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
-            }) {
-                // Type is a forward-declared parcelable
-                type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), None);
-            } else {
-                // Unresolved type
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    range: type_.symbol_range.clone(),
-                    message: format!("Unknown type `{}`", type_.name),
-                    context_message: Some("unknown type".to_owned()),
-                    hint: None,
-                    related_infos: Vec::new(),
-                });
-            }
-        },
-        _ => (),
+    if type_.kind == ast::TypeKind::Unresolved {
+        if let Some(import_path) = imports.iter().find(|import_path| {
+            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+        }) {
+            // Type has been imported
+            let opt_item_kind = defined.get(import_path);
+            type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), opt_item_kind.cloned());
+        } else if let Some(import_path) = declared_parcelables.iter().find(|import_path| {
+            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+        }) {
+            // Type is a forward-declared parcelable
+            type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), None);
+        } else {
+            // Unresolved type
+            diagnostics.push(Diagnostic {
+                kind: DiagnosticKind::Error,
+                range: type_.symbol_range.clone(),
+                message: format!("Unknown type `{}`", type_.name),
+                context_message: Some("unknown type".to_owned()),
+                hint: None,
+                related_infos: Vec::new(),
+            });
+        }
     }
 }
 
@@ -209,7 +217,7 @@ fn check_imports<'a, 'b>(
             });
         }
     }
-    
+
     imports
 }
 
@@ -222,45 +230,53 @@ fn check_declared_parcelables(
     // - detect duplicated parcelables (or name which was already imported)
     // - create map "qualified name" -> Import
     let declared_parcelables: HashMap<String, &ast::Import> =
-        declared_parcelables.iter().fold(HashMap::new(), |mut map, import| {
-            let qualified_name = import.get_qualified_name();
-            
-            if let Some(conflicting_import) = imports.get(&qualified_name) {
-                diagnostics.push(Diagnostic {
-                    kind: DiagnosticKind::Error,
-                    range: import.symbol_range.clone(),
-                    message: format!("Declared parcelable conflicts with import `{}`", qualified_name),
-                    context_message: Some("conflicting declaration".to_owned()),
-                    hint: None,
-                    related_infos: Vec::from([diagnostic::RelatedInfo {
-                        message: "location of conflicting import".to_owned(),
-                        range: conflicting_import.symbol_range.clone(),
-                    }]),
-                });
+        declared_parcelables
+            .iter()
+            .fold(HashMap::new(), |mut map, import| {
+                let qualified_name = import.get_qualified_name();
 
-                return map
-            }
-
-            match map.entry(qualified_name.clone()) {
-                hash_map::Entry::Occupied(previous) => {
+                if let Some(conflicting_import) = imports.get(&qualified_name) {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         range: import.symbol_range.clone(),
-                        message: format!("Multiple parcelable declarations `{}`", qualified_name),
-                        context_message: Some("duplicated declaration".to_owned()),
+                        message: format!(
+                            "Declared parcelable conflicts with import `{}`",
+                            qualified_name
+                        ),
+                        context_message: Some("conflicting declaration".to_owned()),
                         hint: None,
                         related_infos: Vec::from([diagnostic::RelatedInfo {
-                            message: "previous location".to_owned(),
-                            range: previous.get().symbol_range.clone(),
+                            message: "location of conflicting import".to_owned(),
+                            range: conflicting_import.symbol_range.clone(),
                         }]),
                     });
+
+                    return map;
                 }
-                hash_map::Entry::Vacant(v) => {
-                    v.insert(import);
+
+                match map.entry(qualified_name.clone()) {
+                    hash_map::Entry::Occupied(previous) => {
+                        diagnostics.push(Diagnostic {
+                            kind: DiagnosticKind::Error,
+                            range: import.symbol_range.clone(),
+                            message: format!(
+                                "Multiple parcelable declarations `{}`",
+                                qualified_name
+                            ),
+                            context_message: Some("duplicated declaration".to_owned()),
+                            hint: None,
+                            related_infos: Vec::from([diagnostic::RelatedInfo {
+                                message: "previous location".to_owned(),
+                                range: previous.get().symbol_range.clone(),
+                            }]),
+                        });
+                    }
+                    hash_map::Entry::Vacant(v) => {
+                        v.insert(import);
+                    }
                 }
-            }
-            map
-        });
+                map
+            });
 
     // - generate diagnostics for unrecommended usage and for unused declared parcelables
     for (qualified_import, import) in declared_parcelables.into_iter() {
@@ -274,7 +290,7 @@ fn check_declared_parcelables(
                 hint: None,
                 related_infos: Vec::new(),
             });
-        } else { 
+        } else {
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
                 range: import.symbol_range.clone(),
@@ -287,19 +303,11 @@ fn check_declared_parcelables(
     }
 }
 
-fn check_types(
-    ast: &ast::Aidl,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    traverse::walk_types(ast, |type_: &ast::Type| {
-        check_type(type_, diagnostics)
-    });
+fn check_types(ast: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
+    traverse::walk_types(ast, |type_: &ast::Type| check_type(type_, diagnostics));
 }
 
-fn check_type(
-    type_: &ast::Type,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_type(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     match &type_.kind {
         ast::TypeKind::Array => {
             let value_type = &type_.generic_types[0];
@@ -355,10 +363,7 @@ fn check_type(
     };
 }
 
-fn check_methods(
-    file: &ast::Aidl,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_methods(file: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
     let mut method_names: HashMap<String, &ast::Method> = HashMap::new();
     let mut first_method_without_id: Option<&ast::Method> = None;
     let mut first_method_with_id: Option<&ast::Method> = None;
@@ -459,10 +464,7 @@ fn check_methods(
     });
 }
 
-fn check_method(
-    method: &ast::Method,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_method(method: &ast::Method, diagnostics: &mut Vec<Diagnostic>) {
     if method.oneway && method.return_type.kind != ast::TypeKind::Void {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
@@ -481,10 +483,7 @@ fn check_method(
 }
 
 // Check arg direction (e.g. depending on type or method being oneway)
-fn check_method_args(
-    method: &ast::Method,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_method_args(method: &ast::Method, diagnostics: &mut Vec<Diagnostic>) {
     for arg in &method.args {
         // Range of direction (or position of arg type)
         let range = match &arg.direction {
@@ -526,7 +525,10 @@ fn check_method_args(
                 }
             }
             RequirementForArgDirection::CanOnlyBeInOrInOut(for_elements) => {
-                if !matches!(arg.direction, ast::Direction::In(_) | ast::Direction::InOut(_)) {
+                if !matches!(
+                    arg.direction,
+                    ast::Direction::In(_) | ast::Direction::InOut(_)
+                ) {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         message: format!("Invalid direction for `{}`", arg.arg_type.name),
@@ -542,15 +544,15 @@ fn check_method_args(
                 }
             }
             RequirementForArgDirection::CannotBeAnArg(for_elements) => {
-                    diagnostics.push(Diagnostic {
-                        kind: DiagnosticKind::Error,
-                        message: format!("Invalid argument `{}`", arg.arg_type.name,),
-                        context_message: Some("invalid argument".to_owned()),
-                        range: range.clone(),
-                        hint: Some(format!("{} cannot be an argument", for_elements)),
-                        related_infos: Vec::new(),
-                    });
-            },
+                diagnostics.push(Diagnostic {
+                    kind: DiagnosticKind::Error,
+                    message: format!("Invalid argument `{}`", arg.arg_type.name,),
+                    context_message: Some("invalid argument".to_owned()),
+                    range: range.clone(),
+                    hint: Some(format!("{} cannot be an argument", for_elements)),
+                    related_infos: Vec::new(),
+                });
+            }
             RequirementForArgDirection::NoRequirement => (),
         }
 
@@ -583,9 +585,7 @@ enum RequirementForArgDirection {
     NoRequirement,
 }
 
-fn get_requirement_for_arg_direction(
-    type_: &ast::Type,
-) -> RequirementForArgDirection {
+fn get_requirement_for_arg_direction(type_: &ast::Type) -> RequirementForArgDirection {
     match type_.kind {
         ast::TypeKind::Primitive => {
             RequirementForArgDirection::CanOnlyBeInOrUnspecified("primitives")
@@ -596,14 +596,26 @@ fn get_requirement_for_arg_direction(
             RequirementForArgDirection::DirectionRequired("maps")
         }
         ast::TypeKind::String => RequirementForArgDirection::CanOnlyBeInOrUnspecified("strings"),
-        ast::TypeKind::CharSequence => RequirementForArgDirection::CanOnlyBeInOrUnspecified("CharSequence"),
-        ast::TypeKind::ParcelableHolder => RequirementForArgDirection::CannotBeAnArg("ParcelableHolder"),
+        ast::TypeKind::CharSequence => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified("CharSequence")
+        }
+        ast::TypeKind::ParcelableHolder => {
+            RequirementForArgDirection::CannotBeAnArg("ParcelableHolder")
+        }
         ast::TypeKind::IBinder => todo!(),
         ast::TypeKind::FileDescriptor => todo!(),
-        ast::TypeKind::ParcelFileDescriptor => RequirementForArgDirection::CanOnlyBeInOrInOut("ParcelFileDescriptor"),  // because it is not default-constructible
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => RequirementForArgDirection::DirectionRequired("parcelables"), 
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces"), 
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums"), 
+        ast::TypeKind::ParcelFileDescriptor => {
+            RequirementForArgDirection::CanOnlyBeInOrInOut("ParcelFileDescriptor")
+        } // because it is not default-constructible
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => {
+            RequirementForArgDirection::DirectionRequired("parcelables")
+        }
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces")
+        }
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => {
+            RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums")
+        }
         ast::TypeKind::Resolved(_, None) => RequirementForArgDirection::NoRequirement,
         ast::TypeKind::Unresolved => RequirementForArgDirection::NoRequirement,
     }
@@ -612,10 +624,7 @@ fn get_requirement_for_arg_direction(
 // Can only have one dimensional arrays
 // "Binder" type cannot be an array (with interface element...)
 // TODO: not allowed for ParcelableHolder, allowed for IBinder, ...
-fn check_array_element(
-    type_: &ast::Type,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_array_element(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     let ok = match type_.kind {
         // Not OK (custom diagnostic and return)
         ast::TypeKind::Array => {
@@ -641,9 +650,9 @@ fn check_array_element(
         ast::TypeKind::ParcelFileDescriptor => true,
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => false,
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => true,  // OK: enum is backed by a primitive
-        ast::TypeKind::Resolved(_, None) => true,  // we don't know
-        ast::TypeKind::Unresolved => true,  // we don't know
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => true, // OK: enum is backed by a primitive
+        ast::TypeKind::Resolved(_, None) => true,                      // we don't know
+        ast::TypeKind::Unresolved => true,                             // we don't know
     };
 
     if !ok {
@@ -652,17 +661,16 @@ fn check_array_element(
             message: format!("Invalid array element `{}`", type_.name),
             context_message: Some("invalid parameter".to_owned()),
             range: type_.symbol_range.clone(),
-            hint: Some("must be a primitive, an enum, a String, a parcelable or a IBinder".to_owned()),
+            hint: Some(
+                "must be a primitive, an enum, a String, a parcelable or a IBinder".to_owned(),
+            ),
             related_infos: Vec::new(),
         });
     }
 }
 
 // List<T> supports parcelable/union, String, IBinder, and ParcelFileDescriptor
-fn check_list_element(
-    type_: &ast::Type,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_list_element(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     let ok = match type_.kind {
         ast::TypeKind::Array => false,
         ast::TypeKind::List => false,
@@ -676,10 +684,10 @@ fn check_list_element(
         ast::TypeKind::FileDescriptor => false,
         ast::TypeKind::ParcelFileDescriptor => true,
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => false,  // "Binder" type cannot be an array
-        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => false,  // OK: enum is backed by a primitive
-        ast::TypeKind::Resolved(_, None) => true,  // we don't know
-        ast::TypeKind::Unresolved => true,  // we don't know
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => false, // "Binder" type cannot be an array
+        ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => false, // OK: enum is backed by a primitive
+        ast::TypeKind::Resolved(_, None) => true,                       // we don't know
+        ast::TypeKind::Unresolved => true,                              // we don't know
     };
 
     if !ok {
@@ -689,7 +697,8 @@ fn check_list_element(
             context_message: Some("invalid element".to_owned()),
             range: type_.symbol_range.clone(),
             hint: Some(
-                "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor".to_owned(),
+                "must be a parcelable/enum, a String, a IBinder or a ParcelFileDescriptor"
+                    .to_owned(),
             ),
             related_infos: Vec::new(),
         });
@@ -697,10 +706,7 @@ fn check_list_element(
 }
 
 // The type of key in map must be String
-fn check_map_key(
-    type_: &ast::Type,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_map_key(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     if !matches!(type_.kind, ast::TypeKind::String if type_.name == "String") {
         diagnostics.push(Diagnostic {
             kind: DiagnosticKind::Error,
@@ -717,10 +723,7 @@ fn check_map_key(
 }
 
 // A generic type cannot have any primitive type parameters
-fn check_map_value(
-    type_: &ast::Type,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
+fn check_map_value(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     let ok = match type_.kind {
         ast::TypeKind::Array => true,
         ast::TypeKind::List => true,
@@ -736,8 +739,8 @@ fn check_map_value(
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Parcelable)) => true,
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Interface)) => true,
         ast::TypeKind::Resolved(_, Some(ast::ItemKind::Enum)) => false,
-        ast::TypeKind::Resolved(_, None) => true,  // we don't know
-        ast::TypeKind::Unresolved => true,  // we don't know
+        ast::TypeKind::Resolved(_, None) => true, // we don't know
+        ast::TypeKind::Unresolved => true,        // we don't know
     };
 
     if !ok {
@@ -818,19 +821,22 @@ mod tests {
             symbol_range: utils::create_range(1),
             full_range: utils::create_range(1),
         };
-        let import_map = HashMap::from([
-            (import.get_qualified_name(), &import),
-        ]);
+        let import_map = HashMap::from([(import.get_qualified_name(), &import)]);
         let resolved = HashSet::from([
             "test.path.DeclaredParcelable1".into(),
             "test.path.DeclaredParcelable2".into(),
         ]);
         let mut diagnostics = Vec::new();
 
-        check_declared_parcelables(&declared_parcelables, &import_map, &resolved, &mut diagnostics);
+        check_declared_parcelables(
+            &declared_parcelables,
+            &import_map,
+            &resolved,
+            &mut diagnostics,
+        );
 
         diagnostics.sort_by_key(|d| d.range.start.line_col.0);
-        
+
         assert_eq!(diagnostics.len(), 5);
 
         let d = &diagnostics[0];
@@ -848,7 +854,9 @@ mod tests {
 
         let d = &diagnostics[3];
         assert_eq!(d.kind, DiagnosticKind::Warning);
-        assert!(d.message.contains("Unused declared parcelable `UnusedParcelable`"));
+        assert!(d
+            .message
+            .contains("Unused declared parcelable `UnusedParcelable`"));
         assert_eq!(d.range.start.line_col.0, 5);
 
         let d = &diagnostics[4];
@@ -965,13 +973,7 @@ mod tests {
         ]
         .into_iter()
         {
-            let map = utils::create_map(
-                Some((
-                    utils::create_string(0),
-                    vt,
-                )),
-                0,
-            );
+            let map = utils::create_map(Some((utils::create_string(0), vt)), 0);
             let mut diagnostics = Vec::new();
             check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
@@ -1000,13 +1002,7 @@ mod tests {
         ]
         .into_iter()
         {
-            let map = utils::create_map(
-                Some((
-                    kt,
-                    utils::create_string(0),
-                )),
-                0,
-            );
+            let map = utils::create_map(Some((kt, utils::create_string(0))), 0);
             let mut diagnostics = Vec::new();
             check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
@@ -1021,13 +1017,7 @@ mod tests {
         ]
         .into_iter()
         {
-            let map = utils::create_map(
-                Some((
-                    utils::create_string(0),
-                    vt,
-                )),
-                0,
-            );
+            let map = utils::create_map(Some((utils::create_string(0), vt)), 0);
             let mut diagnostics = Vec::new();
             check_type(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
@@ -1187,18 +1177,20 @@ mod tests {
         };
 
         // Types which are not allowed to be used for args
-        for t in [
-            utils::create_android_builtin(ast::TypeKind::ParcelableHolder, 0),
-        ]
+        for t in [utils::create_android_builtin(
+            ast::TypeKind::ParcelableHolder,
+            0,
+        )]
         .into_iter()
         {
-                let mut diagnostics = Vec::new();
-                let mut method = base_method.clone();
-                method.args = Vec::from([
-                    utils::create_arg(t, ast::Direction::In(utils::create_range(0))),
-                ]);
-                check_method_args(&method, &mut diagnostics);
-                assert_eq!(diagnostics.len(), 1);
+            let mut diagnostics = Vec::new();
+            let mut method = base_method.clone();
+            method.args = Vec::from([utils::create_arg(
+                t,
+                ast::Direction::In(utils::create_range(0)),
+            )]);
+            check_method_args(&method, &mut diagnostics);
+            assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid argument"));
         }
 
@@ -1241,9 +1233,10 @@ mod tests {
         }
 
         // ParcelFileDescriptor cannot be out
-        for t in [
-            utils::create_android_builtin(ast::TypeKind::ParcelFileDescriptor, 0),
-        ]
+        for t in [utils::create_android_builtin(
+            ast::TypeKind::ParcelFileDescriptor,
+            0,
+        )]
         .into_iter()
         {
             // In or InOut => OK
@@ -1382,15 +1375,15 @@ mod tests {
         }
 
         pub fn create_void(line: usize) -> ast::Type {
-            create_simple_type("void", ast::TypeKind::Void, line)            
+            create_simple_type("void", ast::TypeKind::Void, line)
         }
 
         pub fn create_string(line: usize) -> ast::Type {
-            create_simple_type("String", ast::TypeKind::String, line)            
+            create_simple_type("String", ast::TypeKind::String, line)
         }
 
         pub fn create_char_sequence(line: usize) -> ast::Type {
-            create_simple_type("CharSequence", ast::TypeKind::CharSequence, line)            
+            create_simple_type("CharSequence", ast::TypeKind::CharSequence, line)
         }
 
         pub fn create_android_builtin(kind: ast::TypeKind, line: usize) -> ast::Type {
@@ -1405,11 +1398,7 @@ mod tests {
             create_simple_type(name, kind, line)
         }
 
-        fn create_simple_type(
-            name: &'static str,
-            kind: ast::TypeKind,
-            line: usize,
-        ) -> ast::Type {
+        fn create_simple_type(name: &'static str, kind: ast::TypeKind, line: usize) -> ast::Type {
             ast::Type {
                 name: name.into(),
                 kind,
