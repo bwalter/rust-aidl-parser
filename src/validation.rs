@@ -608,8 +608,8 @@ fn get_requirement_for_arg_direction(type_: &ast::Type) -> RequirementForArgDire
         ast::TypeKind::ParcelableHolder => {
             RequirementForArgDirection::CannotBeAnArg("ParcelableHolder")
         }
-        ast::TypeKind::IBinder => todo!(),
-        ast::TypeKind::FileDescriptor => todo!(),
+        ast::TypeKind::IBinder => RequirementForArgDirection::CanOnlyBeInOrUnspecified("IBinder"),
+        ast::TypeKind::FileDescriptor => RequirementForArgDirection::CanOnlyBeInOrUnspecified("IBinder"),
         ast::TypeKind::ParcelFileDescriptor => {
             RequirementForArgDirection::CanOnlyBeInOrInOut("ParcelFileDescriptor")
         } // because it is not default-constructible
