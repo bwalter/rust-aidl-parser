@@ -3,6 +3,9 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Fix TODOs and handle arg direction for IBindle and FileDescriptor
+- Rename Method::value into Method::transact_code
+
 ## [0.9.1] - 2022-01-10
 
 - Fix resolving of declared parcelables
