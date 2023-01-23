@@ -138,9 +138,8 @@ where
 
     fn collect_item_keys(&self) -> HashMap<ast::ItemKey, ast::ItemKind> {
         self.lalrpop_results
-            .iter()
-            .map(|(_, fr)| &fr.ast)
-            .flatten()
+            .values()
+            .flat_map(|fr| &fr.ast)
             .map(|f| (f.get_key(), f.item.get_kind()))
             .collect()
     }
