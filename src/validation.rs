@@ -399,9 +399,9 @@ fn check_methods(file: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
 
         let is_mixed_now_with_id = first_method_with_id.is_none()
             && first_method_without_id.is_some()
-            && method.value.is_some();
+            && method.transact_code.is_some();
         let is_mixed_now_without_id =
-            first_method_without_id.is_none() && !method_ids.is_empty() && method.value.is_none();
+            first_method_without_id.is_none() && !method_ids.is_empty() && method.transact_code.is_none();
 
         if is_mixed_now_with_id || is_mixed_now_without_id {
             let info_previous = if is_mixed_now_with_id {
@@ -410,20 +410,20 @@ fn check_methods(file: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
                     range: first_method_without_id
                         .as_ref()
                         .unwrap()
-                        .value_range
+                        .transact_code_range
                         .clone(),
                 }
             } else {
                 diagnostic::RelatedInfo {
                     message: "method with id".to_owned(),
-                    range: first_method_with_id.as_ref().unwrap().value_range.clone(),
+                    range: first_method_with_id.as_ref().unwrap().transact_code_range.clone(),
                 }
             };
 
             // Methods are mixed (with/without id)
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Error,
-                range: method.value_range.clone(),
+                range: method.transact_code_range.clone(),
                 message: String::from("Mixed usage of method ids"),
                 context_message: None,
                 hint: Some(String::from(
@@ -433,7 +433,7 @@ fn check_methods(file: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
             });
         }
 
-        if method.value.is_some() {
+        if method.transact_code.is_some() {
             // First method with id
             if first_method_with_id.is_none() {
                 first_method_with_id = Some(method);
@@ -445,18 +445,18 @@ fn check_methods(file: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
             }
         }
 
-        if let Some(id) = method.value {
+        if let Some(id) = method.transact_code {
             match method_ids.entry(id) {
                 hash_map::Entry::Occupied(oe) => {
                     // Method id already defined
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
-                        range: method.value_range.clone(),
+                        range: method.transact_code_range.clone(),
                         message: String::from("Duplicated method id"),
                         context_message: Some("duplicated import".to_owned()),
                         hint: None,
                         related_infos: Vec::from([diagnostic::RelatedInfo {
-                            range: oe.get().value_range.clone(),
+                            range: oe.get().transact_code_range.clone(),
                             message: String::from("previous method"),
                         }]),
                     });
@@ -1084,11 +1084,11 @@ mod tests {
             return_type: utils::create_void(0),
             args: Vec::new(),
             annotations: Vec::new(),
-            value: None,
+            transact_code: None,
             doc: None,
             symbol_range: utils::create_range(0),
             full_range: utils::create_range(0),
-            value_range: utils::create_range(0),
+            transact_code_range: utils::create_range(0),
             oneway_range: utils::create_range(0),
         };
         let mut diagnostics = Vec::new();
@@ -1173,12 +1173,12 @@ mod tests {
             name: "testMethod".into(),
             return_type: utils::create_void(0),
             args: Vec::new(),
-            value: None,
+            transact_code: None,
             annotations: Vec::new(),
             doc: None,
             symbol_range: utils::create_range(0),
             full_range: utils::create_range(1),
-            value_range: utils::create_range(0),
+            transact_code_range: utils::create_range(0),
             oneway_range: utils::create_range(0),
         };
 
@@ -1200,11 +1200,13 @@ mod tests {
             assert!(diagnostics[0].message.contains("Invalid argument"));
         }
 
-        // Primitives, String and Interfaces can only be in or unspecified
+        // Primitives, String, Interfaces, Enums, IBinder and FileDescriptor can only be in or unspecified
         for t in [
             utils::create_int(0),
             utils::create_string(0),
             utils::create_char_sequence(0),
+            utils::create_android_builtin(ast::TypeKind::IBinder, 0),
+            utils::create_android_builtin(ast::TypeKind::FileDescriptor, 0),
             utils::create_custom_type("test.TestInterface", ast::ItemKind::Interface, 0),
             utils::create_custom_type("test.TestEnum", ast::ItemKind::Enum, 0),
         ]
@@ -1470,11 +1472,11 @@ mod tests {
                 return_type: create_int(0),
                 args: Vec::new(),
                 annotations: Vec::new(),
-                value: id,
+                transact_code: id,
                 doc: None,
                 symbol_range: create_range(line),
                 full_range: create_range(line),
-                value_range: create_range(line + 1),
+                transact_code_range: create_range(line + 1),
                 oneway_range: create_range(line + 2),
             }
         }

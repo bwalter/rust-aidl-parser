@@ -1,8 +1,6 @@
 ---
 source: src/rules.rs
-assertion_line: 171
 expression: res
-
 ---
 Interface(
   oneway: false,
@@ -34,7 +32,7 @@ Interface(
       doc: Some("method1 documentation"),
       symbol_range: "...",
       full_range: "...",
-      value_range: "...",
+      transact_code_range: "...",
       oneway_range: "...",
     )),
     const(Const(
@@ -61,7 +59,7 @@ Interface(
       args: [],
       symbol_range: "...",
       full_range: "...",
-      value_range: "...",
+      transact_code_range: "...",
       oneway_range: "...",
     )),
   ],

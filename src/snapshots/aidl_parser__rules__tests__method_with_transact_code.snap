@@ -1,8 +1,6 @@
 ---
 source: src/rules.rs
-assertion_line: 410
 expression: res
-
 ---
 Method(
   oneway: false,
@@ -14,9 +12,9 @@ Method(
     full_range: "...",
   ),
   args: [],
-  value: Some(123),
+  transact_code: Some(123),
   symbol_range: "...",
   full_range: "...",
-  value_range: "...",
+  transact_code_range: "...",
   oneway_range: "...",
 )

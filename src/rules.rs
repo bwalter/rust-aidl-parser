@@ -20,7 +20,7 @@ mod tests {
             ::insta::assert_ron_snapshot!(res, {
                 ".**.symbol_range" => "...",
                 ".**.full_range" => "...",
-                ".**.value_range" => "...",
+                ".**.transact_code_range" => "...",
                 ".**.oneway_range" => "...",
             });
             assert_eq!(diagnostics, &[]);
@@ -32,7 +32,7 @@ mod tests {
             ::insta::assert_ron_snapshot!(res, {
                 ".**.symbol_range" => "...",
                 ".**.full_range" => "...",
-                ".**.value_range" => "...",
+                ".**.transact_code_range" => "...",
                 ".**.oneway_range" => "...",
             });
         };
@@ -398,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    fn test_method_with_value() -> Result<()> {
+    fn test_method_with_transact_code() -> Result<()> {
         let input = "TypeName myMethod() = 123;";
         assert_parser!(input, rules::aidl::MethodParser::new());
 
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn test_method_with_invalid_value() -> Result<()> {
+    fn test_method_with_invalid_transact_code() -> Result<()> {
         let input = "TypeName myMethod() = 12.3;";
         assert!(rules::aidl::MethodParser::new()
             .parse(&lookup(input), &mut Vec::new(), input)

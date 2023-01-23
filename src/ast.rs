@@ -237,12 +237,12 @@ pub struct Method {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<Annotation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<u32>,
+    pub transact_code: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<String>,
     pub symbol_range: Range,
     pub full_range: Range,
-    pub value_range: Range,
+    pub transact_code_range: Range,
     pub oneway_range: Range,
 }
 

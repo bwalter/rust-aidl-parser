@@ -186,13 +186,13 @@ pub(crate) Method: ast::Method = {
             args,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
-            value: match v.map(str::parse) {
+            transact_code: match v.map(str::parse) {
                 Some(Ok(v)) => Some(v),
                 Some(Err(e)) => {
                     diagnostics.push(Diagnostic {
                         kind: DiagnosticKind::Error,
                         range: ast::Range::new(&lookup, vp1 + 2, vp2),
-                        message: format!("Invalid method value: {}", e),
+                        message: format!("Invalid method transact code: {}", e),
                         context_message: None,
                         hint: None,
                         related_infos: Vec::new(),
@@ -203,7 +203,7 @@ pub(crate) Method: ast::Method = {
             },
             full_range: ast::Range::new(&lookup, fp1, fp2),
             symbol_range: ast::Range::new(&lookup, sp1, sp2),
-            value_range: ast::Range::new(&lookup, vp1, vp2),
+            transact_code_range: ast::Range::new(&lookup, vp1, vp2),
             oneway_range: ast::Range::new(&lookup, owp1, owp2),
         }
     }

@@ -1,8 +1,6 @@
 ---
 source: src/rules.rs
-assertion_line: 402
 expression: res
-
 ---
 Method(
   name: "myMethod",
@@ -15,6 +13,6 @@ Method(
   args: [],
   symbol_range: "...",
   full_range: "...",
-  value_range: "...",
+  transact_code_range: "...",
   oneway_range: "...",
 )
