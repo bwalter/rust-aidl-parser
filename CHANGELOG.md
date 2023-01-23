@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.10.1] - 2023-01-23
+
 - Fix TODOs and handle arg direction for IBindle and FileDescriptor
 - Rename Method::value into Method::transact_code
 
