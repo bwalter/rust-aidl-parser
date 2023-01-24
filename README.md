@@ -84,6 +84,7 @@ Link to AOSP AIDL implementation:
       "android.content.Context", "java.lang.String", "java.lang.CharSequence" (but add a warning)
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)
 - Format?
+- Set default value of enums parcelable properties
 - validate:
   - file name matching item name
   - annotations

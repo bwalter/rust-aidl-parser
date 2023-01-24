@@ -772,7 +772,7 @@ mod tests {
     fn test_annotation5() -> Result<()> {
         let mut settings = insta::Settings::clone_current();
         settings.set_sort_maps(true);
-        settings.bind_to_thread();
+        let _guard = settings.bind_to_scope();
 
         let input = "@AnnotationName(Hello=\"World\", Hi, Servus= 3 )";
         assert_parser!(input, rules::aidl::OptAnnotationParser::new());
