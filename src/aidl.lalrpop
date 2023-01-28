@@ -114,13 +114,13 @@ OptInterfaceElement: Option<ast::InterfaceElement> = {
 pub(crate) Parcelable: ast::Parcelable = {
     <p0:@L>
     <annotations:AnnotationList>
-    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableField*> "}" <fp2:@R> => {
-        // Convert Vec<Option<Field>> into Vec<Field>
-        let fields: Vec<ast::Field> = v.into_iter().flatten().collect();
+    <fp1:@L> PARCELABLE <sp1:@L> <s:IDENT> <sp2:@R> "{" <v:OptParcelableElement*> "}" <fp2:@R> => {
+        // Convert Vec<Option<ParcelableElement>> into Vec<ParcelableElement>
+        let elements: Vec<ast::ParcelableElement> = v.into_iter().flatten().collect();
 
         ast::Parcelable {
             name: s.into(),
-            fields,
+            elements,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
             full_range: ast::Range::new(&lookup, fp1, fp2),
@@ -129,11 +129,12 @@ pub(crate) Parcelable: ast::Parcelable = {
     }
 }
 
-// Parcelable field
-OptParcelableField: Option<ast::Field> = {
-    <m:Field> => Some(m),
+// Field or const (with error recovery)
+OptParcelableElement: Option<ast::ParcelableElement> = {
+    <f:Field> => Some(ast::ParcelableElement::Field(f)),
+    <c:Const> => Some(ast::ParcelableElement::Const(c)),
     ! =>? {
-        if let Some(d) = Diagnostic::from_error_recovery("Invalid field", lookup, <>) {
+        if let Some(d) = Diagnostic::from_error_recovery("Invalid parcelable element", lookup, <>) {
             diagnostics.push(d);
         }
         Ok(None)

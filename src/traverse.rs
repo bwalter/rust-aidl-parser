@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 
 use crate::ast;
-use crate::symbol::Symbol;
+use crate::symbol::{ConstOwner, Symbol};
 
 /// Determine the depth of traversal functions
 #[derive(Clone, Copy)]
@@ -137,7 +137,7 @@ where
                     ControlFlow::Continue(())
                 }
                 ast::InterfaceElement::Const(c) => {
-                    f(Symbol::Const(c, i))?;
+                    f(Symbol::Const(c, ConstOwner::Interface(i)))?;
                     if let SymbolFilter::All = filter {
                         visit_type_helper!(&c.const_type, f);
                     }
@@ -151,14 +151,22 @@ where
                 return ControlFlow::Continue(());
             }
 
-            p.fields.iter().try_for_each(|m| {
-                f(Symbol::Field(m, p))?;
+            p.elements.iter().try_for_each(|el| match el {
+                ast::ParcelableElement::Field(fi) => {
+                    f(Symbol::Field(fi, p))?;
+                    if let SymbolFilter::All = filter {
+                        visit_type_helper!(&fi.field_type, f);
+                    }
 
-                if let SymbolFilter::All = filter {
-                    visit_type_helper!(&m.field_type, f);
+                    ControlFlow::Continue(())
                 }
-
-                ControlFlow::Continue(())
+                ast::ParcelableElement::Const(c) => {
+                    f(Symbol::Const(c, ConstOwner::Parcelable(p)))?;
+                    if let SymbolFilter::All = filter {
+                        visit_type_helper!(&c.const_type, f);
+                    }
+                    ControlFlow::Continue(())
+                }
             })?;
         }
         ast::Item::Enum(ref e) => {
@@ -226,8 +234,13 @@ pub fn walk_types<F: FnMut(&ast::Type)>(ast: &ast::Aidl, mut f: F) {
             });
         }
         ast::Item::Parcelable(ref p) => {
-            p.fields.iter().for_each(|m| {
-                visit_type_helper(&m.field_type);
+            p.elements.iter().for_each(|el| match el {
+                ast::ParcelableElement::Field(fi) => {
+                    visit_type_helper(&fi.field_type);
+                }
+                ast::ParcelableElement::Const(c) => {
+                    visit_type_helper(&c.const_type);
+                }
             });
         }
         ast::Item::Enum(_) => (),
@@ -255,8 +268,13 @@ pub(crate) fn walk_types_mut<F: FnMut(&mut ast::Type)>(ast: &mut ast::Aidl, mut 
             });
         }
         ast::Item::Parcelable(ref mut p) => {
-            p.fields.iter_mut().for_each(|m| {
-                visit_type_helper(&mut m.field_type);
+            p.elements.iter_mut().for_each(|el| match el {
+                ast::ParcelableElement::Field(fi) => {
+                    visit_type_helper(&mut fi.field_type);
+                }
+                ast::ParcelableElement::Const(c) => {
+                    visit_type_helper(&mut c.const_type);
+                }
             });
         }
         ast::Item::Enum(_) => (),

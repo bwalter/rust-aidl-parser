@@ -238,6 +238,11 @@ mod tests {
     fn test_parcelable() -> Result<()> {
         let input = r#"parcelable Tomato {
             /**
+             * const1 documentation
+             */
+            const int const1 = 1;
+
+            /**
              * field1 documentation
              */
             int field1;

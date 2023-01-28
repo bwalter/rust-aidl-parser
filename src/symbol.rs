@@ -11,10 +11,25 @@ pub enum Symbol<'a> {
     Enum(&'a ast::Enum, &'a ast::Package),
     Method(&'a ast::Method, &'a ast::Interface),
     Arg(&'a ast::Arg, &'a ast::Method),
-    Const(&'a ast::Const, &'a ast::Interface),
+    Const(&'a ast::Const, ConstOwner<'a>),
     Field(&'a ast::Field, &'a ast::Parcelable),
     EnumElement(&'a ast::EnumElement, &'a ast::Enum),
     Type(&'a ast::Type),
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub enum ConstOwner<'a> {
+    Interface(&'a ast::Interface),
+    Parcelable(&'a ast::Parcelable),
+}
+
+impl<'a> ConstOwner<'a> {
+    pub fn get_name(&self) -> &str {
+        match self {
+            ConstOwner::Interface(i) => &i.name,
+            ConstOwner::Parcelable(p) => &p.name,
+        }
+    }
 }
 
 impl<'a> Symbol<'a> {
@@ -43,7 +58,7 @@ impl<'a> Symbol<'a> {
             Symbol::Enum(e, pkg) => Some(format!("{}{}", pkg.name, e.name)),
             Symbol::Method(m, i) => Some(format!("{}::{}", i.name, m.name)),
             Symbol::Arg(a, _) => a.name.clone(),
-            Symbol::Const(c, i) => Some(format!("{}::{}", i.name, c.name)),
+            Symbol::Const(c, o) => Some(format!("{}::{}", o.get_name(), c.name)),
             Symbol::Field(m, p) => Some(format!("{}::{}", p.name, m.name)),
             Symbol::EnumElement(el, e) => Some(format!("{}::{}", e.name, el.name)),
             Symbol::Type(ast::Type {

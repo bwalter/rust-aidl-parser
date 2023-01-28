@@ -1,12 +1,10 @@
 ---
 source: src/rules.rs
-assertion_line: 264
 expression: res
-
 ---
 Parcelable(
   name: "Tomato",
-  fields: [],
+  elements: [],
   doc: Some("Parcelable documentation"),
   full_range: "...",
   symbol_range: "...",

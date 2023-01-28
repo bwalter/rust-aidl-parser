@@ -1,13 +1,24 @@
 ---
 source: src/rules.rs
-assertion_line: 254
 expression: res
-
 ---
 Parcelable(
   name: "Tomato",
-  fields: [
-    Field(
+  elements: [
+    const(Const(
+      name: "const1",
+      type: Type(
+        name: "int",
+        kind: primitive,
+        symbol_range: "...",
+        full_range: "...",
+      ),
+      value: "1",
+      doc: Some("const1 documentation"),
+      symbol_range: "...",
+      full_range: "...",
+    )),
+    field(Field(
       name: "field1",
       type: Type(
         name: "int",
@@ -18,8 +29,8 @@ Parcelable(
       doc: Some("field1 documentation"),
       symbol_range: "...",
       full_range: "...",
-    ),
-    Field(
+    )),
+    field(Field(
       name: "field2",
       type: Type(
         name: "String",
@@ -29,7 +40,7 @@ Parcelable(
       ),
       symbol_range: "...",
       full_range: "...",
-    ),
+    )),
   ],
   full_range: "...",
   symbol_range: "...",
