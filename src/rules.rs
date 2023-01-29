@@ -3,6 +3,7 @@ use lalrpop_util::lalrpop_mod;
 lalrpop_mod!(#[allow(clippy::all, dead_code, unused_imports)] pub aidl);
 
 #[cfg(test)]
+#[allow(clippy::single_element_loop)]
 mod tests {
     use crate::rules;
     use anyhow::Result;
@@ -576,22 +577,6 @@ mod tests {
     fn test_type_char_sequence() -> Result<()> {
         let input = "CharSequence";
         assert_parser!(input, rules::aidl::TypeParser::new());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_type_android_builtin() -> Result<()> {
-        let inputs = [
-            "ParcelableHolder",
-            "IBinder",
-            "FileDescriptor",
-            "ParcelFileDescriptor",
-        ];
-
-        for input in inputs.into_iter() {
-            assert_parser!(input, rules::aidl::TypeParser::new());
-        }
 
         Ok(())
     }

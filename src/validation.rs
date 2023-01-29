@@ -56,8 +56,8 @@ where
                 &mut fr.diagnostics,
             );
 
-            // Check types (e.g.: map parameters)
-            check_types(&ast, &mut fr.diagnostics);
+            // Check containers (e.g.: map parameters)
+            check_containers(&ast, &mut fr.diagnostics);
 
             if let ast::Item::Interface(ref mut interface) = ast.item {
                 // Set up oneway interface (adjust methods to be oneway)
@@ -128,7 +128,7 @@ fn resolve_types(
     traverse::walk_types_mut(ast, |type_: &mut ast::Type| {
         resolve_type(type_, imports, declared_parcelables, defined, diagnostics);
         match &type_.kind {
-            ast::TypeKind::Resolved(key, _) => {
+            ast::TypeKind::ResolvedItem(key, _) => {
                 resolved.insert(key.clone());
             }
             ast::TypeKind::CharSequence => {
@@ -154,35 +154,76 @@ fn resolve_type(
     defined: &HashMap<String, ast::ResolvedItemKind>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if type_.kind == ast::TypeKind::Unresolved {
-        if let Some(import_path) = imports.iter().find(|import_path| {
-            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
-        }) {
-            if let Some(item_kind) = defined.get(import_path) {
-                type_.kind = ast::TypeKind::Resolved(import_path.to_owned(), item_kind.clone());
-            } else {
-                // Imported but not defined -> still unresolved but no diagnostic
-            }
-        } else if let Some(import_path) = declared_parcelables.iter().find(|import_path| {
-            &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
-        }) {
-            // Type is a forward-declared parcelable
-            type_.kind = ast::TypeKind::Resolved(
-                import_path.to_owned(),
-                ast::ResolvedItemKind::ForwardDeclaredParcelable,
-            );
-        } else {
-            // Unresolved type
-            diagnostics.push(Diagnostic {
-                kind: DiagnosticKind::Error,
-                range: type_.symbol_range.clone(),
-                message: format!("Unknown type `{}`", type_.name),
-                context_message: Some("unknown type".to_owned()),
-                hint: None,
-                related_infos: Vec::new(),
-            });
+    if type_.kind != ast::TypeKind::Unresolved {
+        return;
+    }
+
+    // Unresolved type has the full qualification of a built-in Android type (e.g. android.os.IBinder)?
+    let opt_android = ast::AndroidTypeKind::from_qualified_name(&type_.name);
+    if let Some(android) = opt_android {
+        if android.can_be_qualified() || imports.contains(&type_.name) {
+            type_.kind = ast::TypeKind::AndroidType(android);
+            return;
         }
     }
+
+    // Unresolved type is in import path?
+    if let Some(import_path) = imports.iter().find(|import_path| {
+        &type_.name == *import_path || import_path.ends_with(&format!(".{}", type_.name))
+    }) {
+        if let Some(item_kind) = defined.get(import_path) {
+            // Imported type is defined => set resolved item
+            type_.kind = ast::TypeKind::ResolvedItem(import_path.to_owned(), item_kind.clone());
+            return;
+        }
+
+        // Imported but not defined => set resolved item as unknown import
+        type_.kind = ast::TypeKind::ResolvedItem(
+            import_path.to_owned(),
+            ast::ResolvedItemKind::UnknownImport,
+        );
+        return;
+    }
+
+    // Unresolved type is forward-declared?
+    // Note: it is supposed to only work with path
+    if let Some(import_path) = declared_parcelables
+        .iter()
+        .find(|import_path| &type_.name == *import_path && !import_path.contains('.'))
+    {
+        // Set resolved item as forward-declared parcelable
+        type_.kind = ast::TypeKind::ResolvedItem(
+            import_path.to_owned(),
+            ast::ResolvedItemKind::ForwardDeclaredParcelable,
+        );
+        return;
+    }
+
+    // Unresolved type has the full qualification of a built-in Android type (e.g. android.os.IBinder)?
+    let opt_android = ast::AndroidTypeKind::from_qualified_name(&type_.name);
+    if let Some(android) = opt_android {
+        if android.can_be_qualified() {
+            type_.kind = ast::TypeKind::AndroidType(android);
+            return;
+        }
+    } else {
+        // Unresolved type has the name of a built-in Android type (e.g. aIBinder)?
+        let opt_android = ast::AndroidTypeKind::from_name(&type_.name);
+        if let Some(android) = opt_android {
+            type_.kind = ast::TypeKind::AndroidType(android);
+            return;
+        }
+    }
+
+    // Unresolved type
+    diagnostics.push(Diagnostic {
+        kind: DiagnosticKind::Error,
+        range: type_.symbol_range.clone(),
+        message: format!("Unknown type `{}`", type_.name),
+        context_message: Some("unknown type".to_owned()),
+        hint: None,
+        related_infos: Vec::new(),
+    });
 }
 
 fn check_imports<'a>(
@@ -219,7 +260,7 @@ fn check_imports<'a>(
     // - generate diagnostics for unused and unresolved imports
     for (qualified_import, import) in imports.iter() {
         if !defined.contains_key(qualified_import)
-            && !ast::AndroidTypeKind::is_android_type_kind(qualified_import)
+            && ast::AndroidTypeKind::from_qualified_name(qualified_import).is_none()
         {
             // No item can be found with the given import path
             diagnostics.push(Diagnostic {
@@ -330,11 +371,11 @@ fn check_declared_parcelables(
     }
 }
 
-fn check_types(ast: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
-    traverse::walk_types(ast, |type_: &ast::Type| check_type(type_, diagnostics));
+fn check_containers(ast: &ast::Aidl, diagnostics: &mut Vec<Diagnostic>) {
+    traverse::walk_types(ast, |type_: &ast::Type| check_container(type_, diagnostics));
 }
 
-fn check_type(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
+fn check_container(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
     match &type_.kind {
         ast::TypeKind::Array => {
             let value_type = &type_.generic_types[0];
@@ -643,17 +684,17 @@ fn get_requirement_for_arg_direction(type_: &ast::Type) -> RequirementForArgDire
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelableHolder) => {
             RequirementForArgDirection::CannotBeAnArg("ParcelableHolder")
         }
-        ast::TypeKind::Resolved(
+        ast::TypeKind::ResolvedItem(
             _,
             ast::ResolvedItemKind::Parcelable | ast::ResolvedItemKind::ForwardDeclaredParcelable,
         ) => RequirementForArgDirection::DirectionRequired("parcelables"),
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Interface) => {
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Interface) => {
             RequirementForArgDirection::CanOnlyBeInOrUnspecified("interfaces")
         }
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Enum) => {
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Enum) => {
             RequirementForArgDirection::CanOnlyBeInOrUnspecified("enums")
         }
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::UnknwonImport) => {
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::UnknownImport) => {
             RequirementForArgDirection::CanOnlyBeInOrUnspecified("objects")
         }
         ast::TypeKind::Unresolved => RequirementForArgDirection::NoRequirement,
@@ -687,12 +728,12 @@ fn check_array_element(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::FileDescriptor) => true,
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelFileDescriptor) => true,
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelableHolder) => false,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Parcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Interface) => false,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Enum) => true, // OK: enum is backed by a primitive
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::UnknwonImport) => true, // OK: it is an unknown object
-        ast::TypeKind::Unresolved => true,                                        // we don't know
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Parcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Interface) => false,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Enum) => true, // OK: enum is backed by a primitive
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::UnknownImport) => true, // OK: it is an unknown object
+        ast::TypeKind::Unresolved => true, // we don't know
     };
 
     if !ok {
@@ -723,12 +764,12 @@ fn check_list_element(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::FileDescriptor) => false,
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelFileDescriptor) => true,
         ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelableHolder) => false,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Parcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Interface) => false,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Enum) => false, // NO: enum is backed by a primitive
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::UnknwonImport) => true, // OK: it is an (unknown) object
-        ast::TypeKind::Unresolved => true,                                        // we don't know
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Parcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Interface) => false,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Enum) => false, // NO: enum is backed by a primitive
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::UnknownImport) => true, // OK: it is an (unknown) object
+        ast::TypeKind::Unresolved => true, // we don't know
     };
 
     if !ok {
@@ -774,11 +815,11 @@ fn check_map_value(type_: &ast::Type, diagnostics: &mut Vec<Diagnostic>) {
         ast::TypeKind::Primitive => false,
         ast::TypeKind::Void => false,
         ast::TypeKind::AndroidType(_) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Parcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Interface) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::Enum) => false,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
-        ast::TypeKind::Resolved(_, ast::ResolvedItemKind::UnknwonImport) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Parcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Interface) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::Enum) => false,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::ForwardDeclaredParcelable) => true,
+        ast::TypeKind::ResolvedItem(_, ast::ResolvedItemKind::UnknownImport) => true,
         ast::TypeKind::Unresolved => true, // we don't know
     };
 
@@ -801,6 +842,147 @@ mod tests {
 
     use super::*;
     use crate::ast;
+
+    #[test]
+    fn test_check_resolve_type() {
+        let defined = HashMap::from([]);
+
+        {
+            // IBinder properly resolved
+            let mut t = utils::create_unresolved_type(
+                ast::AndroidTypeKind::IBinder.get_name(),
+                1,
+            );
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &HashSet::new(),
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(
+                t.kind,
+                ast::TypeKind::AndroidType(ast::AndroidTypeKind::IBinder)
+            );
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        {
+            // android.os.IBinder not properly resolved
+            let mut t = utils::create_unresolved_type(
+                ast::AndroidTypeKind::IBinder.get_qualified_name(),
+                1,
+            );
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &HashSet::new(),
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(t.kind, ast::TypeKind::Unresolved);
+            assert_eq!(diagnostics.len(), 1); // Error because type is not resolved
+        }
+
+        {
+            // android.os.ParcelFileDescriptor
+            let mut t = utils::create_unresolved_type(
+                ast::AndroidTypeKind::ParcelFileDescriptor.get_qualified_name(),
+                1,
+            );
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &HashSet::new(),
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(
+                t.kind,
+                ast::TypeKind::AndroidType(ast::AndroidTypeKind::ParcelFileDescriptor)
+            );
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        {
+            // UnknownType
+            let mut t = utils::create_unresolved_type("UnknownType", 1);
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &HashSet::new(),
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(t.kind, ast::TypeKind::Unresolved);
+            assert_eq!(diagnostics.len(), 1);
+        }
+
+        {
+            // UnknownType but imported
+            let mut t = utils::create_unresolved_type("UnknownType", 1);
+            let imports = HashSet::from(["path.to.UnknownType".to_owned()]);
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &imports,
+                &HashSet::new(),
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(
+                t.kind,
+                ast::TypeKind::ResolvedItem(
+                    "path.to.UnknownType".to_owned(),
+                    ast::ResolvedItemKind::UnknownImport
+                )
+            );
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        {
+            // Forward-declared parcelable
+            let mut t = utils::create_unresolved_type("ForwardDeclaredParcelable", 1);
+            let declared_parcelables = HashSet::from(["ForwardDeclaredParcelable".to_owned()]);
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &declared_parcelables,
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(
+                t.kind,
+                ast::TypeKind::ResolvedItem(
+                    "ForwardDeclaredParcelable".to_owned(),
+                    ast::ResolvedItemKind::ForwardDeclaredParcelable
+                )
+            );
+            assert_eq!(diagnostics.len(), 0);
+        }
+
+        {
+            // Forward-declared parcelable (with path, which is not supposed to work)
+            let mut t = utils::create_unresolved_type("ForwardDeclaredParcelable", 1);
+            let declared_parcelables =
+                HashSet::from(["path.to.ForwardDeclaredParcelable".to_owned()]);
+            let mut diagnostics = Vec::new();
+            resolve_type(
+                &mut t,
+                &HashSet::new(),
+                &declared_parcelables,
+                &defined,
+                &mut diagnostics,
+            );
+            assert_eq!(t.kind, ast::TypeKind::Unresolved);
+            assert_eq!(diagnostics.len(), 1);
+        }
+    }
 
     #[test]
     fn test_check_imports() {
@@ -864,11 +1046,11 @@ mod tests {
     #[test]
     fn test_check_declared_parcelables() {
         let declared_parcelables = Vec::from([
-            utils::create_import("test.path", "DeclaredParcelable1", 2),
-            utils::create_import("test.path", "DeclaredParcelable1", 3),
-            utils::create_import("test.path", "DeclaredParcelable2", 4),
-            utils::create_import("test.path", "UnusedParcelable", 5),
-            utils::create_import("test.path", "AlreadyImported", 6),
+            utils::create_import("", "DeclaredParcelable1", 2),
+            utils::create_import("", "DeclaredParcelable1", 3),
+            utils::create_import("", "DeclaredParcelable2", 4),
+            utils::create_import("", "UnusedParcelable", 5),
+            utils::create_import("", "AlreadyImported", 6),
         ]);
 
         let import = ast::Import {
@@ -922,7 +1104,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_type() {
+    fn test_check_container() {
         // Valid arrays
         for t in [
             utils::create_int(0),
@@ -930,21 +1112,25 @@ mod tests {
             utils::create_android_builtin(ast::AndroidTypeKind::IBinder, 0),
             utils::create_android_builtin(ast::AndroidTypeKind::FileDescriptor, 0),
             utils::create_android_builtin(ast::AndroidTypeKind::ParcelFileDescriptor, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
-            utils::create_custom_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
+            utils::create_resolved_item_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let array = utils::create_array(t, 0);
             let mut diagnostics = Vec::new();
-            check_type(&array, &mut diagnostics);
+            check_container(&array, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Multi-dimensional array
         let mut diagnostics = Vec::new();
         let array = utils::create_array(utils::create_array(utils::create_int(0), 0), 0);
-        check_type(&array, &mut diagnostics);
+        check_container(&array, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0]
             .message
@@ -955,7 +1141,11 @@ mod tests {
             utils::create_android_builtin(ast::AndroidTypeKind::ParcelableHolder, 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestInterface", ast::ResolvedItemKind::Interface, 0),
+            utils::create_resolved_item_type(
+                "test.TestInterface",
+                ast::ResolvedItemKind::Interface,
+                0,
+            ),
             utils::create_char_sequence(0),
             utils::create_void(0),
         ]
@@ -963,7 +1153,7 @@ mod tests {
         {
             let array = utils::create_array(t, 0);
             let mut diagnostics = Vec::new();
-            check_type(&array, &mut diagnostics);
+            check_container(&array, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid array"));
         }
@@ -973,20 +1163,24 @@ mod tests {
             utils::create_string(0),
             utils::create_android_builtin(ast::AndroidTypeKind::IBinder, 0),
             utils::create_android_builtin(ast::AndroidTypeKind::ParcelFileDescriptor, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
         ]
         .into_iter()
         {
             let list = utils::create_list(Some(t), 0);
             let mut diagnostics = Vec::new();
-            check_type(&list, &mut diagnostics);
+            check_container(&list, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Non-generic list -> warning
         let mut diagnostics = Vec::new();
         let list = utils::create_list(None, 105);
-        check_type(&list, &mut diagnostics);
+        check_container(&list, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
         assert_eq!(diagnostics[0].range.start.line_col.0, 105);
@@ -1002,14 +1196,18 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestInterface", ast::ResolvedItemKind::Interface, 0),
-            utils::create_custom_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
+            utils::create_resolved_item_type(
+                "test.TestInterface",
+                ast::ResolvedItemKind::Interface,
+                0,
+            ),
+            utils::create_resolved_item_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let list = utils::create_list(Some(t), 0);
             let mut diagnostics = Vec::new();
-            check_type(&list, &mut diagnostics);
+            check_container(&list, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid list"));
         }
@@ -1024,21 +1222,29 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
-            utils::create_custom_type("test.TestInterface", ast::ResolvedItemKind::Interface, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
+            utils::create_resolved_item_type(
+                "test.TestInterface",
+                ast::ResolvedItemKind::Interface,
+                0,
+            ),
         ]
         .into_iter()
         {
             let map = utils::create_map(Some((utils::create_string(0), vt)), 0);
             let mut diagnostics = Vec::new();
-            check_type(&map, &mut diagnostics);
+            check_container(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 0);
         }
 
         // Non-generic map -> warning
         let mut diagnostics = Vec::new();
         let map = utils::create_map(None, 205);
-        check_type(&map, &mut diagnostics);
+        check_container(&map, &mut diagnostics);
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].kind, DiagnosticKind::Warning);
         assert_eq!(diagnostics[0].range.start.line_col.0, 205);
@@ -1052,15 +1258,23 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
-            utils::create_custom_type("test.TestInterface", ast::ResolvedItemKind::Interface, 0),
-            utils::create_custom_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
+            utils::create_resolved_item_type(
+                "test.TestInterface",
+                ast::ResolvedItemKind::Interface,
+                0,
+            ),
+            utils::create_resolved_item_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let map = utils::create_map(Some((kt, utils::create_string(0))), 0);
             let mut diagnostics = Vec::new();
-            check_type(&map, &mut diagnostics);
+            check_container(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid map"));
         }
@@ -1069,13 +1283,13 @@ mod tests {
         for vt in [
             utils::create_int(0),
             utils::create_void(0),
-            utils::create_custom_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
+            utils::create_resolved_item_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
         ]
         .into_iter()
         {
             let map = utils::create_map(Some((utils::create_string(0), vt)), 0);
             let mut diagnostics = Vec::new();
-            check_type(&map, &mut diagnostics);
+            check_container(&map, &mut diagnostics);
             assert_eq!(diagnostics.len(), 1);
             assert!(diagnostics[0].message.contains("Invalid map"));
         }
@@ -1257,8 +1471,12 @@ mod tests {
             utils::create_char_sequence(0),
             utils::create_android_builtin(ast::AndroidTypeKind::IBinder, 0),
             utils::create_android_builtin(ast::AndroidTypeKind::FileDescriptor, 0),
-            utils::create_custom_type("test.TestInterface", ast::ResolvedItemKind::Interface, 0),
-            utils::create_custom_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
+            utils::create_resolved_item_type(
+                "test.TestInterface",
+                ast::ResolvedItemKind::Interface,
+                0,
+            ),
+            utils::create_resolved_item_type("test.TestEnum", ast::ResolvedItemKind::Enum, 0),
         ]
         .into_iter()
         {
@@ -1330,7 +1548,11 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
         ]
         .into_iter()
         {
@@ -1365,7 +1587,11 @@ mod tests {
             utils::create_array(utils::create_int(0), 0),
             utils::create_list(None, 0),
             utils::create_map(None, 0),
-            utils::create_custom_type("test.TestParcelable", ast::ResolvedItemKind::Parcelable, 0),
+            utils::create_resolved_item_type(
+                "test.TestParcelable",
+                ast::ResolvedItemKind::Parcelable,
+                0,
+            ),
         ]
         .into_iter()
         {
@@ -1448,17 +1674,11 @@ mod tests {
             android_kind: ast::AndroidTypeKind,
             line: usize,
         ) -> ast::Type {
-            let name = match android_kind {
-                ast::AndroidTypeKind::ParcelableHolder => "ParcelableHolder",
-                ast::AndroidTypeKind::IBinder => "IBinder",
-                ast::AndroidTypeKind::FileDescriptor => "FileDescriptor",
-                ast::AndroidTypeKind::ParcelFileDescriptor => "ParcelFileDescriptor",
-            };
-
-            create_simple_type(name, ast::TypeKind::AndroidType(android_kind), line)
+            let name = android_kind.get_name().to_owned();
+            create_simple_type(&name, ast::TypeKind::AndroidType(android_kind), line)
         }
 
-        fn create_simple_type(name: &'static str, kind: ast::TypeKind, line: usize) -> ast::Type {
+        fn create_simple_type(name: &str, kind: ast::TypeKind, line: usize) -> ast::Type {
             ast::Type {
                 name: name.into(),
                 kind,
@@ -1503,14 +1723,24 @@ mod tests {
             }
         }
 
-        pub fn create_custom_type(
+        pub fn create_resolved_item_type(
             path: &str,
             item_kind: ast::ResolvedItemKind,
             line: usize,
         ) -> ast::Type {
             ast::Type {
                 name: "TestCustomType".into(),
-                kind: ast::TypeKind::Resolved(path.into(), item_kind),
+                kind: ast::TypeKind::ResolvedItem(path.into(), item_kind),
+                generic_types: Vec::new(),
+                symbol_range: create_range(line),
+                full_range: create_range(line),
+            }
+        }
+
+        pub fn create_unresolved_type(path: &str, line: usize) -> ast::Type {
+            ast::Type {
+                name: path.to_owned(),
+                kind: ast::TypeKind::Unresolved,
                 generic_types: Vec::new(),
                 symbol_range: create_range(line),
                 full_range: create_range(line),

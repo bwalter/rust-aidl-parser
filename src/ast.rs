@@ -116,7 +116,7 @@ pub enum ResolvedItemKind {
     Parcelable,
     Enum,
     ForwardDeclaredParcelable,
-    UnknwonImport,
+    UnknownImport,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -379,7 +379,7 @@ pub enum TypeKind {
     String,
     CharSequence,
     AndroidType(AndroidTypeKind),
-    Resolved(String, ResolvedItemKind),
+    ResolvedItem(String, ResolvedItemKind),
     Unresolved,
 }
 
@@ -394,21 +394,61 @@ pub enum AndroidTypeKind {
 }
 
 impl AndroidTypeKind {
-    fn get_all() -> &'static [Self] {
-        &[
+    fn get_all() -> Vec<Self> {
+        Vec::from([
             Self::IBinder,
             Self::FileDescriptor,
             Self::ParcelFileDescriptor,
             Self::ParcelableHolder,
-        ]
+        ])
     }
 
-    pub fn is_android_type_kind(qualified_name: &str) -> bool {
+    pub fn from_type_name(name: &str) -> Option<Self> {
         Self::get_all()
-            .iter()
-            .any(|at| at.get_qualified_name() == qualified_name)
+            .into_iter()
+            .find(|at| at.get_name() == name || (at.can_be_qualified() && at.get_qualified_name() == name))
     }
 
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::get_all()
+            .into_iter()
+            .find(|at| at.get_name() == name)
+    }
+
+    pub fn from_qualified_name(qualified_name: &str) -> Option<Self> {
+        Self::get_all()
+            .into_iter()
+            .find(|at| at.get_qualified_name() == qualified_name)
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            AndroidTypeKind::IBinder => "IBinder",
+            AndroidTypeKind::FileDescriptor => "FileDescriptor",
+            AndroidTypeKind::ParcelFileDescriptor => "ParcelFileDescriptor",
+            AndroidTypeKind::ParcelableHolder => "ParcelableHolder",
+        }
+    }
+
+    // If the type can be used with qualified name, e.g. MyMethod(in android.os.IBinder)
+    pub fn can_be_qualified(&self) -> bool {
+        match self {
+            AndroidTypeKind::IBinder => false,
+            AndroidTypeKind::FileDescriptor => false,
+            AndroidTypeKind::ParcelFileDescriptor => true,
+            AndroidTypeKind::ParcelableHolder => false,
+        }
+    }
+
+    pub fn must_be_imported(&self) -> bool {
+        match self {
+            AndroidTypeKind::IBinder => true,
+            AndroidTypeKind::FileDescriptor => true,
+            AndroidTypeKind::ParcelFileDescriptor => true,
+            AndroidTypeKind::ParcelableHolder => true,
+        }
+    }
+    
     pub fn get_qualified_name(&self) -> &str {
         match self {
             AndroidTypeKind::IBinder => "android.os.IBinder",
@@ -517,36 +557,6 @@ impl Type {
             full_range: Range::new(lookup, start, end),
         }
     }
-
-    pub fn android_type<S: Into<String>>(
-        name: S,
-        android_kind: AndroidTypeKind,
-        lookup: &line_col::LineColLookup,
-        start: usize,
-        end: usize,
-    ) -> Self {
-        Type {
-            name: name.into(),
-            kind: TypeKind::AndroidType(android_kind),
-            generic_types: Vec::new(),
-            symbol_range: Range::new(lookup, start, end),
-            full_range: Range::new(lookup, start, end),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum TypeDefinition {
-    Unresolved,
-    Resolved {
-        key: ItemKey,
-        item_kind: ResolvedItemKind,
-    },
-    ForwardDeclared {
-        qualified_name: String,
-        range: Range,
-    },
 }
 
 trait BoolExt {
