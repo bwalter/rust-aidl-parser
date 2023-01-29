@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.11.0] - 2023-01-29
+
 - Improve handling of Android built-in types and imports
 - Be a little bit more tolerant when reading field values
 
