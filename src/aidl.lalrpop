@@ -272,7 +272,7 @@ pub(crate) Field: ast::Field = {
         ast::Field {
             name: n.to_owned(),
             field_type: t,
-            value: v.map(str::to_owned),
+            value: v,
             annotations,
             doc: javadoc::get_javadoc(input, p0),
             full_range: ast::Range::new(&lookup, fp1, fp2),
@@ -287,7 +287,7 @@ EnumElement: ast::EnumElement = {
     <annotations:AnnotationList>
     <fp1:@L>
     <sp1:@L> <n:IDENT> <sp2:@R>
-    <v:("=" <Value>)?>
+    <v:("=" <EnumValue>)?>
     <fp2:@R> => {
         ast::EnumElement {
             name: n.to_owned(),
@@ -394,16 +394,32 @@ pub(crate) OptAnnotation: Option<ast::Annotation> = {
 }
 
 AnnotationParam: (String, Option<String>) = {
-    <k:IDENT> <v:("=" <Value>)?> => (k.to_owned(), v.map(str::to_owned))
+    <k:IDENT> <v:("=" <AnnotationValue>)?> => (k.to_owned(), v.map(str::to_owned))
 }
 
-pub(crate) Value: &'input str = {
+pub(crate) Value: String = {
+    <v:INTEGER> => v.to_string(),
+    <v:FLOAT> => v.to_string(),
+    <v:QUOTED_STRING> => v.to_string(),
+    <v:BOOLEAN> => v.to_string(),
+    "{" "}" => "{}".to_string(),
+    "{" Value+ ("," <Value>)* ","? "}" => "{...}".to_string(),
+    <a:IDENT> "." <b:IDENT> => format!("{a}.{b}"),
+    // TODO: also accept arithmetic, hexadecimal values, ...
+}
+
+pub(crate) AnnotationValue: &'input str = {
     INTEGER,
     FLOAT,
     QUOTED_STRING,
     BOOLEAN,
-    "{" "}" => "{}",
-    "{" Value+ ("," <Value>)* ","? "}" => "{...}",
+}
+
+pub(crate) EnumValue: &'input str = {
+    INTEGER,
+    FLOAT,
+    QUOTED_STRING,
+    BOOLEAN,
 }
 
 // Comma separated list with optional trailing comma

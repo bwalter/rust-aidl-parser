@@ -77,7 +77,7 @@ Link to AOSP AIDL implementation:
 - Document how to display diagnostics (e.g. with CodeSpan)
 - union (Android 12)
 - nested types (Android T)
-- Set default value of enums parcelable properties
+- smarter parsing of parcelable field values
 - User-defined generic types
 - Fixed size arrays
 - Const values with arithmetic (e.g.: const int HELLO = 3 * 4)

@@ -242,6 +242,8 @@ mod tests {
              */
             const int const1 = 1;
 
+            const int const2 = MyEnum.ELEMENT3;
+
             /**
              * field1 documentation
              */
@@ -340,7 +342,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid enum element - Unrecognized token `=`.\nExpected one of \"{\", BOOLEAN, FLOAT or QUOTED_STRING",
+            message: "Invalid enum element - Unrecognized token `=`.\nExpected one of BOOLEAN, FLOAT or QUOTED_STRING",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -732,8 +734,16 @@ mod tests {
             );
         }
 
+        // Enum value
+        for input in ["MyEnum.WOOF"].into_iter() {
+            assert_eq!(
+                rules::aidl::ValueParser::new().parse(&lookup(input), &mut Vec::new(), input)?,
+                "MyEnum.WOOF"
+            );
+        }
+
         // Invalid objects
-        for input in ["{\"hello{<\"", "{1sfewf}", "{1, 2, 3,, }"].into_iter() {
+        for input in ["MyEnum", "{\"hello{<\"", "{1sfewf}", "{1, 2, 3,, }"].into_iter() {
             assert!(rules::aidl::ValueParser::new()
                 .parse(&lookup(input), &mut Vec::new(), input)
                 .is_err());

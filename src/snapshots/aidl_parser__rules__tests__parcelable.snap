@@ -18,6 +18,18 @@ Parcelable(
       symbol_range: "...",
       full_range: "...",
     )),
+    const(Const(
+      name: "const2",
+      type: Type(
+        name: "int",
+        kind: primitive,
+        symbol_range: "...",
+        full_range: "...",
+      ),
+      value: "MyEnum.ELEMENT3",
+      symbol_range: "...",
+      full_range: "...",
+    )),
     field(Field(
       name: "field1",
       type: Type(
