@@ -3,9 +3,9 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
-## [0.12.1] - 2023-01-29
-
 - Fix possible issues when import Android built-in types
+
+## [0.12.1] - 2023-01-29
 
 ## [0.12.0] - 2023-01-29
 
