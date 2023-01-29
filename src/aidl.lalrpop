@@ -457,9 +457,9 @@ match {
     "Map" => MAP,
     
     "ParcelableHolder" => PARCELABLE_HOLDER,
-    r"(IBinder|android\.os\.IBinder)" => IBINDER,
-    r"(FileDescriptor|java\.io\.FileDescriptor)" => FILE_DESCRIPTOR,
-    r"(ParcelFileDescriptor|android\.os\.ParcelFileDescriptor)" => PARCEL_FILE_DESCRIPTOR,
+    "IBinder" => IBINDER,
+    "FileDescriptor" => FILE_DESCRIPTOR,
+    "ParcelFileDescriptor" => PARCEL_FILE_DESCRIPTOR,
     
     r#""[^"\n\r]*""# => QUOTED_STRING,
     r#"(true|false)"# => BOOLEAN,

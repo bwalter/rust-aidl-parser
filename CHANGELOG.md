@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Fix possible issues when import Android built-in types
+
 ## [0.12.0] - 2023-01-29
 
 - Add utilities methods to ParcelableElement
