@@ -3,6 +3,9 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Improve handling of Android built-in types and imports
+- Be a little bit more tolerant when reading field values
+
 ## [0.10.1] - 2023-01-23
 
 - Fix TODOs and handle arg direction for IBindle and FileDescriptor
