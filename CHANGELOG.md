@@ -3,10 +3,13 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Add utilities methods to ParcelableElement
+
 ## [0.11.0] - 2023-01-29
 
 - Improve handling of Android built-in types and imports
 - Be a little bit more tolerant when reading field values
+- Add support for consts in parcelable
 
 ## [0.10.1] - 2023-01-23
 

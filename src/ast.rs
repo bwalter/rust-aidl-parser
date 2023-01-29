@@ -302,6 +302,29 @@ pub enum ParcelableElement {
     Field(Field),
 }
 
+impl ParcelableElement {
+    pub fn as_field(&self) -> Option<&Field> {
+        match &self {
+            ParcelableElement::Field(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            ParcelableElement::Const(c) => &c.name,
+            ParcelableElement::Field(f) => &f.name,
+        }
+    }
+
+    pub fn get_symbol_range(&self) -> &Range {
+        match self {
+            ParcelableElement::Const(c) => &c.symbol_range,
+            ParcelableElement::Field(f) => &f.symbol_range,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
@@ -368,11 +391,18 @@ pub enum AndroidTypeKind {
 
 impl AndroidTypeKind {
     fn get_all() -> &'static [Self] {
-        &[Self::IBinder, Self::FileDescriptor, Self::ParcelFileDescriptor, Self::ParcelableHolder]
+        &[
+            Self::IBinder,
+            Self::FileDescriptor,
+            Self::ParcelFileDescriptor,
+            Self::ParcelableHolder,
+        ]
     }
-    
+
     pub fn is_android_type_kind(qualified_name: &str) -> bool {
-        Self::get_all().iter().any(|at| at.get_qualified_name() == qualified_name)
+        Self::get_all()
+            .iter()
+            .any(|at| at.get_qualified_name() == qualified_name)
     }
 
     pub fn get_qualified_name(&self) -> &str {
@@ -499,7 +529,6 @@ impl Type {
             full_range: Range::new(lookup, start, end),
         }
     }
-
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
