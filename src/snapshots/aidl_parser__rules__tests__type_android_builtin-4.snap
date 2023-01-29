@@ -1,12 +1,10 @@
 ---
 source: src/rules.rs
-assertion_line: 588
 expression: res
-
 ---
 Type(
   name: "ParcelFileDescriptor",
-  kind: parcel_file_descriptor,
+  kind: android_type(parcel_file_descriptor),
   symbol_range: "...",
   full_range: "...",
 )

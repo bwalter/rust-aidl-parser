@@ -1,12 +1,10 @@
 ---
 source: src/rules.rs
-assertion_line: 588
 expression: res
-
 ---
 Type(
   name: "ParcelableHolder",
-  kind: parcelable_holder,
+  kind: android_type(parcelable_holder),
   symbol_range: "...",
   full_range: "...",
 )

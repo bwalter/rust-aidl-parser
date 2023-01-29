@@ -136,7 +136,7 @@ where
         validation::validate(keys, self.lalrpop_results.clone())
     }
 
-    fn collect_item_keys(&self) -> HashMap<ast::ItemKey, ast::ItemKind> {
+    fn collect_item_keys(&self) -> HashMap<ast::ItemKey, ast::ResolvedItemKind> {
         self.lalrpop_results
             .values()
             .flat_map(|fr| &fr.ast)

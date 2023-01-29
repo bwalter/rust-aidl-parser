@@ -107,10 +107,12 @@ impl InterfaceElement {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum ItemKind {
+pub enum ResolvedItemKind {
     Interface,
     Parcelable,
     Enum,
+    ForwardDeclaredParcelable,
+    UnknwonImport,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -143,11 +145,11 @@ impl Item {
         }
     }
 
-    pub fn get_kind(&self) -> ItemKind {
+    pub fn get_kind(&self) -> ResolvedItemKind {
         match self {
-            Item::Interface(_) => ItemKind::Interface,
-            Item::Parcelable(_) => ItemKind::Parcelable,
-            Item::Enum(_) => ItemKind::Enum,
+            Item::Interface(_) => ResolvedItemKind::Interface,
+            Item::Parcelable(_) => ResolvedItemKind::Parcelable,
+            Item::Enum(_) => ResolvedItemKind::Enum,
         }
     }
 
@@ -349,12 +351,38 @@ pub enum TypeKind {
     List,
     String,
     CharSequence,
-    ParcelableHolder,
+    AndroidType(AndroidTypeKind),
+    Resolved(String, ResolvedItemKind),
+    Unresolved,
+}
+
+/// Android (or Java) built-in types which do not require explicit import
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AndroidTypeKind {
     IBinder,
     FileDescriptor,
     ParcelFileDescriptor,
-    Resolved(String, Option<ItemKind>),
-    Unresolved,
+    ParcelableHolder,
+}
+
+impl AndroidTypeKind {
+    fn get_all() -> &'static [Self] {
+        &[Self::IBinder, Self::FileDescriptor, Self::ParcelFileDescriptor, Self::ParcelableHolder]
+    }
+    
+    pub fn is_android_type_kind(qualified_name: &str) -> bool {
+        Self::get_all().iter().any(|at| at.get_qualified_name() == qualified_name)
+    }
+
+    pub fn get_qualified_name(&self) -> &str {
+        match self {
+            AndroidTypeKind::IBinder => "android.os.IBinder",
+            AndroidTypeKind::FileDescriptor => "java.os.FileDescriptor",
+            AndroidTypeKind::ParcelFileDescriptor => "android.os.ParcelFileDescriptor",
+            AndroidTypeKind::ParcelableHolder => "android.os.ParcelableHolder",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -455,6 +483,23 @@ impl Type {
             full_range: Range::new(lookup, start, end),
         }
     }
+
+    pub fn android_type<S: Into<String>>(
+        name: S,
+        android_kind: AndroidTypeKind,
+        lookup: &line_col::LineColLookup,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Type {
+            name: name.into(),
+            kind: TypeKind::AndroidType(android_kind),
+            generic_types: Vec::new(),
+            symbol_range: Range::new(lookup, start, end),
+            full_range: Range::new(lookup, start, end),
+        }
+    }
+
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -463,7 +508,7 @@ pub enum TypeDefinition {
     Unresolved,
     Resolved {
         key: ItemKey,
-        item_kind: ItemKind,
+        item_kind: ResolvedItemKind,
     },
     ForwardDeclared {
         qualified_name: String,

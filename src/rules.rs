@@ -282,7 +282,7 @@ mod tests {
           Diagnostic(
             kind: Error,
             range: "...",
-            message: "Invalid field - Unrecognized token `;`.\nExpected one of \",\", \".\", \">\" or IDENT",
+            message: "Invalid parcelable element - Unrecognized token `;`.\nExpected one of \",\", \".\", \">\" or IDENT",
             context_message: Some("unrecognized token"),
             hint: None,
             related_infos: [],
@@ -709,7 +709,8 @@ mod tests {
         }
 
         // Invalid strings
-        for input in ["\"\"\""].into_iter() {
+        {
+            let input = "\"\"\"";
             assert!(rules::aidl::ValueParser::new()
                 .parse(&lookup(input), &mut Vec::new(), input)
                 .is_err());
