@@ -19,7 +19,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-aidl-parser = "0.12.0"
+aidl-parser = "0.12.1"
 ```
 
 Create parser, analyze results:
