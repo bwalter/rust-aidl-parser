@@ -34,10 +34,10 @@ pub type ParseError<'input> =
     lalrpop_util::ParseError<usize, rules::aidl::Token<'input>, &'static str>;
 
 impl Diagnostic {
-    pub(crate) fn from_error_recovery<'input>(
+    pub(crate) fn from_error_recovery(
         msg: &str,
         lookup: &line_col::LineColLookup,
-        error_recovery: ErrorRecovery<'input>,
+        error_recovery: ErrorRecovery,
     ) -> Option<Diagnostic> {
         Self::from_parse_error(lookup, error_recovery.error).map(|d| Diagnostic {
             message: format!("{} - {}", msg, d.message),
