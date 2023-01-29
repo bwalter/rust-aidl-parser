@@ -179,11 +179,7 @@ impl<'a> Symbol<'a> {
                 ast::Direction::Unspecified => "",
             };
 
-            let suffix = a
-                .name
-                .as_ref()
-                .map(|s| format!(" {}", s))
-                .unwrap_or_default();
+            let suffix = a.name.as_ref().map(|s| format!(" {s}")).unwrap_or_default();
 
             format!("{}{}{}", direction_str, get_type_str(&a.arg_type), suffix)
         }

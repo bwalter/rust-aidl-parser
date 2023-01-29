@@ -82,6 +82,7 @@ pub fn find_symbol_at_line_col(
     find_symbol(ast, filter, |smb| range_contains(smb.get_range(), line_col))
 }
 
+#[allow(clippy::needless_borrow)] // because of false-positives when invoking macros...
 fn walk_symbols_with_control_flow<'a, V, F>(
     ast: &'a ast::Aidl,
     filter: SymbolFilter,

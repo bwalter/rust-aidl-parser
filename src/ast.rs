@@ -21,7 +21,7 @@ impl Aidl {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Position {
     pub offset: usize,
 
@@ -38,7 +38,7 @@ impl Position {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Range {
     pub start: Position,
     pub end: Position,
@@ -53,14 +53,14 @@ impl Range {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Package {
     pub name: String,
     pub symbol_range: Range,
     pub full_range: Range,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Import {
     pub path: String,
     pub name: String,
@@ -109,7 +109,7 @@ impl InterfaceElement {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ResolvedItemKind {
     Interface,
@@ -207,7 +207,7 @@ pub struct Parcelable {
     pub symbol_range: Range,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Enum {
     pub name: String,
     pub elements: Vec<EnumElement>,
@@ -267,7 +267,7 @@ pub struct Arg {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Direction {
     In(Range),
@@ -350,7 +350,7 @@ impl Field {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct EnumElement {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -361,14 +361,14 @@ pub struct EnumElement {
     pub full_range: Range,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Annotation {
     pub name: String,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub key_values: HashMap<String, Option<String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TypeKind {
     Primitive,
@@ -384,7 +384,7 @@ pub enum TypeKind {
 }
 
 /// Android (or Java) built-in types which do not require explicit import
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AndroidTypeKind {
     IBinder,
@@ -535,7 +535,7 @@ impl Type {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TypeDefinition {
     Unresolved,

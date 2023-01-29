@@ -2,7 +2,7 @@ use crate::ast::Range;
 use crate::rules;
 use serde_derive::Serialize;
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub kind: DiagnosticKind,
     pub range: Range,
@@ -15,13 +15,13 @@ pub struct Diagnostic {
     pub related_infos: Vec<RelatedInfo>,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum DiagnosticKind {
     Error,
     Warning,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct RelatedInfo {
     pub range: Range,
     pub message: String,
@@ -35,7 +35,7 @@ pub type ParseError<'input> =
 
 impl Diagnostic {
     pub(crate) fn from_error_recovery<'input>(
-        msg: &'static str,
+        msg: &str,
         lookup: &line_col::LineColLookup,
         error_recovery: ErrorRecovery<'input>,
     ) -> Option<Diagnostic> {
