@@ -258,7 +258,7 @@ fn check_declared_parcelables(
                         range: declared_parcelable.symbol_range.clone(),
                         message: format!(
                             "Declared parcelable conflicts with import `{}`",
-                            qualified_name
+                            conflicting_import.get_qualified_name()
                         ),
                         context_message: Some("conflicting declaration".to_owned()),
                         hint: None,
@@ -310,10 +310,10 @@ fn check_declared_parcelables(
         } else {
             diagnostics.push(Diagnostic {
                 kind: DiagnosticKind::Warning,
-                range: declared_parcelable.symbol_range.clone(),
+                range: declared_parcelable.full_range.clone(),
                 message: format!("Usage of declared parcelable `{}`", declared_parcelable.name),
                 context_message: Some(String::from("declared parcelable")),
-                hint: Some(String::from("It is recommended to defined parcelables in AIDL to garantee compatilibity between languages")),
+                hint: Some(String::from("It is recommended to define parcelables in AIDL to garantee compatilibity between languages")),
                 related_infos: Vec::new(),
             });
         }

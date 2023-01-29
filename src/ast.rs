@@ -71,7 +71,11 @@ pub struct Import {
 impl Import {
     // TODO: cache it?
     pub fn get_qualified_name(&self) -> String {
-        format!("{}.{}", self.path, self.name)
+        if self.path.is_empty() {
+            self.name.clone()
+        } else {
+            format!("{}.{}", self.path, self.name)
+        }
     }
 }
 
