@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Upgrade dependencies
+
 ## [0.12.3] - 2023-01-29
 
 - Improve handling of Android built-in types and imports
